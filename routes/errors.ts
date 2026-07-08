@@ -98,7 +98,7 @@ route.post('/errors', async (request: any) => {
   }).execute()
 
   return json({ ok: true, issue: issueId }, 201)
-})
+}).skipCsrf() // public ingest: SDKs POST cross-origin with no CSRF cookie
 
 // ---------------------------------------------------------------------------
 // Issues API (dashboard)
@@ -152,9 +152,9 @@ route.post('/issue/{issueId}/status', async (request: any) => {
   await db.unsafe('UPDATE issues SET status = $1 WHERE id = $2', [to, issueId])
   return new Response(null, {
     status: 302,
-    headers: { Location: `/issue?id=${encodeURIComponent(issueId)}`, ...CORS },
+    headers: { Location: `/issue/${encodeURIComponent(issueId)}`, ...CORS },
   })
-})
+}).skipCsrf() // plain HTML form POST from the issue page (no CSRF cookie)
 
 // ---------------------------------------------------------------------------
 // SDK + health
