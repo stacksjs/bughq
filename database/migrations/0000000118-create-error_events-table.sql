@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS "error_events" (
+  "id" varchar(255) PRIMARY KEY,
+  "project_id" varchar(255),
+  "issue_id" varchar(255),
+  "message" varchar(255),
+  "stack" varchar(255),
+  "error_type" varchar(255),
+  "category" varchar(255),
+  "severity" varchar(255),
+  "fingerprint" varchar(255),
+  "url" varchar(255),
+  "browser" varchar(255),
+  "os" varchar(255),
+  "user_agent" varchar(255),
+  "framework" varchar(255),
+  "release" varchar(255),
+  "environment" varchar(255),
+  "user_context" varchar(255),
+  "metadata" varchar(255),
+  "timestamp" varchar(255),
+  "created_at" timestamp not null default CURRENT_TIMESTAMP,
+  "updated_at" timestamp
+);
