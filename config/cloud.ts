@@ -22,8 +22,8 @@ export const tsCloud: TsCloudConfig = {
    * Project configuration
    */
   project: {
-    name: 'stacks',
-    slug: 'stacks',
+    name: 'bughq',
+    slug: 'bughq',
     region: 'us-east-1', // Default AWS region
   },
 
@@ -358,8 +358,11 @@ export const tsCloud: TsCloudConfig = {
     ssl: {
       enabled: true,
       provider: 'acm', // 'acm' | 'letsencrypt'
-      domains: env.SSL_DOMAINS?.split(',') || ['stacksjs.com', 'www.stacksjs.com'],
+      domains: env.SSL_DOMAINS?.split(',') || ['bughq.org', 'www.bughq.org'],
       redirectHttp: true,
+      // Porkbun manages DNS for bughq.org. ts-cloud auto-detects the provider
+      // from the domain's nameservers and reads PORKBUN_API_KEY / PORKBUN_SECRET_KEY
+      // from the environment (.env) to create ACM validation + apex/CNAME records.
       // Let's Encrypt configuration (used when provider: 'letsencrypt' or loadBalancer.enabled: false)
       letsEncrypt: {
         email: env.LETSENCRYPT_EMAIL || 'admin@stacksjs.com',
@@ -372,8 +375,10 @@ export const tsCloud: TsCloudConfig = {
      * DNS Configuration
      */
     dns: {
-      domain: env.APP_DOMAIN || 'stacksjs.com',
-      hostedZoneId: env.AWS_HOSTED_ZONE_ID || 'Z01455702Q7952O6RCY37', // Route53 hosted zone ID
+      // bughq.org is registered + DNS-managed at Porkbun (provider auto-detected
+      // by ts-cloud from the domain's nameservers + PORKBUN_* creds above).
+      domain: env.APP_DOMAIN || 'bughq.org',
+      hostedZoneId: env.AWS_HOSTED_ZONE_ID, // only used if the domain is on Route53
     },
 
     /**
