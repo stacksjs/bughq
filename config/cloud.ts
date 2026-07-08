@@ -207,6 +207,11 @@ export const tsCloud: TsCloudConfig = {
         type: 'ssd', // Provider-agnostic: 'standard', 'ssd', 'premium'
         encrypted: true,
       },
+      // Install PostgreSQL on the box (Pantry) — bughq stores errors/issues in
+      // Postgres, and there's no external managed cluster, so it lives on the
+      // same server (localhost:5432). The deploy creates the `bughq` database.
+      managedServices: { postgres: true },
+      database: { engine: 'postgres', name: 'bughq', username: 'bughq', password: env.DB_PASSWORD || 'bughq_prod_pw' },
       webServer: 'rpx',
       proxy: {
         engine: 'rpx',
@@ -666,92 +671,21 @@ export const tsCloud: TsCloudConfig = {
    * static `/` site for stacksjs.com or it will compete with the app route.
    */
   sites: {
+    // The bughq app — a Bun server (`buddy serve`) rendering the stx issues
+    // dashboard + serving the /errors ingest + /api issue routes on :3000,
+    // fronted by the reverse proxy on bughq.org. Single-purpose error-tracking
+    // app: no docs/blog/marketing static sites from the scaffold template.
     main: {
-      // Ship the repo (source only; node_modules/.git excluded by the packager)
-      // and install on the server via preStart, matching the Forge-style deploy.
-      // server-app: has `start` + `port` (systemd service on :3000).
       root: '.',
       path: '/',
-      domain: env.APP_DOMAIN || 'stacksjs.com',
+      domain: env.APP_DOMAIN || 'bughq.org',
       start: 'bun storage/framework/core/buddy/src/cli.ts serve',
       port: 3000,
       preStart: ['bun install'],
     },
 
-    // API (bun-router) behind `buddy serve`'s same-origin /api proxy.
-    // server-app: has `start` + `port` → systemd service on :3008.
-    // Intentionally NO `domain`/`path`: ts-cloud's rpx gateway skips
-    // domain-less sites, so the service stays loopback-only and is
-    // reached exclusively via the :3000 proxy (stacksjs/stacks#1950).
-    // Loopback isolation is enforced at the firewall too: the Hetzner
-    // deploy strips this port from the provision config
-    // (scrubLoopbackSitePortsForFirewall in buddy's deploy command), so
-    // ts-cloud never opens :3008 to 0.0.0.0/0 — without that, the
-    // HOST=127.0.0.1 bind below would be the only thing keeping the full
-    // API off the public internet.
-    api: {
-      root: '.',
-      start: 'bun storage/framework/core/actions/src/serve/api.ts',
-      port: 3008,
-      preStart: ['bun install'],
-      env: { HOST: '127.0.0.1', APP_ENV: 'production' },
-    },
-
-    // ---- server-static sites (migrated off AWS S3 + CloudFront) ----
-    // NO `start`/`port` ⇒ resolveSiteKind() === 'server-static'. The built
-    // `root` dir is shipped to /var/www/<key> and served by the reverse proxy's
-    // `file_server`. `build` runs locally before packaging to produce `root`.
-
-    // Documentation (BunPress). ~82 MB.
-    // BunPress writes the rendered site into the `.bunpress` subdir of --outdir,
-    // so the SERVED root is `dist/docs/.bunpress`.
-    docs: {
-      deploy: 'server',
-      root: 'dist/docs/.bunpress',
-      path: '/docs',
-      domain: env.APP_DOMAIN || 'stacksjs.com',
-      build: 'bunx @stacksjs/bunpress build --dir ./docs --outdir ./dist/docs',
-      // Extensionless docs URLs resolve to <path>/index.html (BunPress default).
-      pathRewriteStyle: 'directory',
-    },
-
-    // Blog (BunPress static build of content/blog/, same engine as /docs).
-    // `buildBlog` renders the markdown posts with the custom Stacks theme into
-    // clean-URL pages (`<slug>/index.html`) plus the listing, feed.xml, and
-    // sitemap.xml — the static twin of the dev-server's onRequest renderer.
-    blog: {
-      deploy: 'server',
-      root: 'dist/blog',
-      path: '/blog',
-      domain: env.APP_DOMAIN || 'stacksjs.com',
-      build: 'bun -e "const {buildBlog}=await import(\'./storage/framework/core/actions/src/blog\'); await buildBlog({outDir:\'./dist/blog\', baseUrl: (process.env.APP_URL?(/^https?:/.test(process.env.APP_URL)?process.env.APP_URL:\'https://\'+process.env.APP_URL):\'https://stacksjs.com\')})"',
-      // Extensionless blog URLs resolve to <path>/index.html.
-      pathRewriteStyle: 'directory',
-    },
-
-    verygoodadblock: {
-      deploy: 'server',
-      root: '../adblock/dist/site',
-      path: '/',
-      domain: 'verygoodadblock.org',
-      build: 'cd ../adblock && bun run site:build',
-      pathRewriteStyle: 'directory',
-    },
-
-    verygoodadblockWww: {
-      deploy: 'server',
-      root: '../adblock/dist/site',
-      path: '/',
-      domain: 'www.verygoodadblock.org',
-      build: 'cd ../adblock && bun run site:build',
-      pathRewriteStyle: 'directory',
-    },
-
-    // Redirect-only sites (gateway answers with a 301; nothing is shipped).
-    // The alternate adblock domain → canonical, and www → apex for stacksjs.com.
-    veryGoodAdblock: { domain: 'very-good-adblock.org', redirect: 'https://verygoodadblock.org' },
-    veryGoodAdblockWww: { domain: 'www.very-good-adblock.org', redirect: 'https://verygoodadblock.org' },
-    wwwStacksjs: { domain: 'www.stacksjs.com', redirect: 'https://stacksjs.com' },
+    // www → apex redirect.
+    www: { domain: `www.${env.APP_DOMAIN || 'bughq.org'}`, redirect: `https://${env.APP_DOMAIN || 'bughq.org'}` },
   },
 }
 
