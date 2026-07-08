@@ -10,6 +10,7 @@
 import { db } from '@stacksjs/database'
 import { response, route } from '@stacksjs/router'
 import { categorize, culprit, fingerprint, issueTitle, randomId } from '../app/Errors/fingerprint'
+import { authorizeIngest } from '../app/Errors/ingest'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -33,6 +34,16 @@ route.post('/errors', async (request: any) => {
   const projectId = body.project ?? body.p
   if (!projectId || !body.message)
     return json({ error: 'missing project or message' }, 400)
+
+  // Authorize: the report must present the project's ingest key.
+  const providedKey = request.headers?.get('x-bughq-key') ?? body.key ?? null
+  const project = (await db.unsafe(
+    'SELECT id, ingest_key, is_active FROM projects WHERE id = $1 LIMIT 1',
+    [String(projectId)],
+  ))?.[0]
+  const auth = authorizeIngest(project, providedKey)
+  if (!auth.ok)
+    return json({ error: auth.error }, auth.status)
 
   const now = new Date().toISOString()
   const errorType = body.type ?? body.error_type ?? 'Error'
@@ -163,11 +174,11 @@ route.post('/issue/{issueId}/status', async (request: any) => {
 route.get('/sdk.js', (request: any) => {
   const origin = new URL(request.url).origin
   const script = `(function(){
-  var s=document.currentScript,project=s&&s.getAttribute('data-project');
-  if(!project)return;
+  var s=document.currentScript,project=s&&s.getAttribute('data-project'),key=s&&s.getAttribute('data-key');
+  if(!project||!key)return;
   function report(err,extra){try{
     var e=err&&err.error?err.error:err;
-    fetch('${origin}/errors',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json'},
+    fetch('${origin}/errors',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json','X-BugHQ-Key':key},
       body:JSON.stringify({project:project,type:(e&&e.name)||'Error',message:(e&&e.message)||String(e),
         stack:e&&e.stack,url:location.href,extra:extra||null})});
   }catch(_){}}
