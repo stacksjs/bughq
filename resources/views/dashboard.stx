@@ -2,7 +2,7 @@
 // bughq issues dashboard. Reads grouped Issues from Postgres via db.unsafe
 // (parameterized, schema-independent), raced against a short timeout so it
 // always renders even before a database is provisioned.
-const meta = { title: 'bughq — Issues', description: 'Error tracking' }
+const meta = { title: 'bughq - Issues', description: 'Error tracking' }
 
 // Query params reach server scripts via globalThis.__stxServeSearch (the dev
 // server stashes url.search there); there is no `request.query`.
@@ -88,7 +88,7 @@ const stats = [
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
 
 <style>
-/* bughq — Space Grotesk display + JetBrains Mono for numerics/code.
+/* bughq - Space Grotesk display + JetBrains Mono for numerics/code.
    One accent (rose), off-black/off-white, auto light+dark, radius lock 12px. */
 :root {
   --bg: #fbfbfd; --panel: #ffffff; --border: rgba(15,23,42,0.09);

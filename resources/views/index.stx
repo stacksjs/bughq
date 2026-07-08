@@ -1,6 +1,6 @@
 <script server>
 const meta = {
-  title: 'bughq — Error tracking for people who ship',
+  title: 'bughq - Error tracking for people who ship',
   description: 'Capture, group, and triage production errors. Built on Stacks and Postgres.',
 }
 
