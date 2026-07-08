@@ -13,10 +13,13 @@ export default defineModel({
   primaryKey: 'id',
   autoIncrement: true,
 
+  hasMany: ['Subscription'],
+
   traits: {
     useAuth: {
       usePasskey: false,
     },
+    billable: true,
     useTimestamps: true,
     useApi: {
       uri: 'users',

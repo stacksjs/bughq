@@ -208,6 +208,11 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
     localStorage.removeItem('token'); localStorage.removeItem('user')
     window.location.assign('/login')
   })
+  const up = document.createElement('a')
+  up.textContent = 'Upgrade'
+  up.href = '/pricing'
+  up.style.cssText = 'position:fixed;top:16px;right:112px;font:600 13px/1 var(--sans,ui-sans-serif);padding:8px 13px;border-radius:9px;background:var(--accent);color:#fff;text-decoration:none;z-index:60'
+  document.body.appendChild(up)
   document.body.appendChild(btn)
 })()
 </script>
