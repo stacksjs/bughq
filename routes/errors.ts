@@ -139,6 +139,23 @@ route.post('/api/issues/{issueId}/resolve', async (request: any) => {
   return json({ ok: true, status })
 })
 
+// Form-friendly status change used by the issue detail page's Resolve/Ignore/
+// Reopen buttons. Plain HTML form POST (no JS) -> 302 back to the issue, so the
+// page reflects the new status on reload.
+const ISSUE_STATUSES = new Set(['unresolved', 'resolved', 'ignored'])
+
+route.post('/issue/{issueId}/status', async (request: any) => {
+  const issueId = request.params.issueId
+  const to = request.query?.to ?? request.jsonBody?.to ?? 'resolved'
+  if (!ISSUE_STATUSES.has(to))
+    return json({ error: 'invalid status' }, 400)
+  await db.unsafe('UPDATE issues SET status = $1 WHERE id = $2', [to, issueId])
+  return new Response(null, {
+    status: 302,
+    headers: { Location: `/issue?id=${encodeURIComponent(issueId)}`, ...CORS },
+  })
+})
+
 // ---------------------------------------------------------------------------
 // SDK + health
 // ---------------------------------------------------------------------------

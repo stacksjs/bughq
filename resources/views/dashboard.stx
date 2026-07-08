@@ -112,7 +112,7 @@ body { background: var(--bg); color: var(--text); font-family: ui-sans-serif, sy
     <div class="glass rounded-xl overflow-hidden">
       <div class="px-5 py-3 border-b text-sm font-semibold uppercase tracking-wider" style="color: var(--text-3); border-color: var(--border)">Issues</div>
       @forelse (issues as issue)
-        <a href="/issues/{{ issue.id }}" class="flex items-center gap-4 px-5 py-3 border-b transition-colors hover:opacity-80" style="border-color: var(--border)">
+        <a href="/issue?id={{ issue.id }}&project={{ projectId }}" class="flex items-center gap-4 px-5 py-3 border-b transition-colors hover:opacity-80" style="border-color: var(--border)">
           <span class="w-1.5 h-10 rounded-full shrink-0" style="background: {{ levelColor(issue.level) }}"></span>
           <div class="min-w-0 flex-1">
             <div class="font-medium truncate">{{ issue.title }}</div>

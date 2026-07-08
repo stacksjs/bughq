@@ -1,0 +1,211 @@
+<script server>
+// bughq issue detail. Reads one Issue + its recent ErrorEvents from Postgres
+// via db.unsafe (parameterized, schema-independent), raced against a short
+// timeout so the page always renders even before a database is provisioned.
+// Served at `/issue?id={issueId}` — the dashboard links here per row.
+const meta = { title: 'bughq - Issue', description: 'Error tracking' }
+
+const issueId = (typeof request !== 'undefined' && request?.query?.id) || ''
+
+let issue = null
+let events = []
+let live = false
+
+async function loadData() {
+  if (!issueId)
+    return
+  const { db } = await import('@stacksjs/database')
+  issue = (await db.unsafe('SELECT * FROM issues WHERE id = $1 LIMIT 1', [issueId]))?.[0] ?? null
+  if (issue) {
+    events = (await db.unsafe(
+      'SELECT * FROM error_events WHERE issue_id = $1 ORDER BY timestamp DESC LIMIT 25',
+      [issueId],
+    )) ?? []
+  }
+  live = true
+}
+
+try {
+  await Promise.race([loadData(), new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 1500))])
+}
+catch {
+  live = false
+}
+
+const projectId = issue?.project_id
+  || (typeof request !== 'undefined' && request?.query?.project)
+  || 'demo'
+const latest = events[0] || null
+const stack = latest?.stack || ''
+
+function levelColor(level) {
+  if (level === 'fatal') return '#ef4444'
+  if (level === 'error') return '#f97316'
+  if (level === 'warning') return '#eab308'
+  return '#64748b'
+}
+function fromNow(iso) {
+  if (!iso) return '-'
+  const s = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000))
+  if (s < 60) return s + 's ago'
+  if (s < 3600) return Math.floor(s / 60) + 'm ago'
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago'
+  return Math.floor(s / 86400) + 'd ago'
+}
+function fmtDate(iso) {
+  if (!iso) return '-'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return String(iso)
+  return d.toISOString().replace('T', ' ').slice(0, 19) + ' UTC'
+}
+function parseJson(raw) {
+  if (!raw) return null
+  if (typeof raw === 'object') return raw
+  try { return JSON.parse(raw) }
+  catch { return null }
+}
+
+const status = issue?.status || 'unresolved'
+const isResolved = status === 'resolved'
+const isIgnored = status === 'ignored'
+
+const metaRows = issue ? [
+  { label: 'Culprit', value: issue.culprit || '-', mono: true },
+  { label: 'Type', value: issue.error_type || 'Error' },
+  { label: 'Level', value: issue.level || 'error' },
+  { label: 'Events', value: Number(issue.count || 0).toLocaleString() },
+  { label: 'Users affected', value: Number(issue.users_affected || 0).toLocaleString() },
+  { label: 'First seen', value: fmtDate(issue.first_seen) },
+  { label: 'Last seen', value: fmtDate(issue.last_seen) },
+] : []
+
+const userCtx = latest ? parseJson(latest.user_context) : null
+const extra = latest ? parseJson(latest.metadata) : null
+</script>
+
+<style>
+:root { --bg:#f8fafc; --panel:rgba(255,255,255,0.72); --border:rgba(15,23,42,0.08); --text:#0f172a; --text-2:#475569; --text-3:#94a3b8; --accent:#e11d48; --code:rgba(15,23,42,0.04); }
+@media (prefers-color-scheme: dark) { :root { --bg:#0b1120; --panel:rgba(30,41,59,0.5); --border:rgba(148,163,184,0.12); --text:#f1f5f9; --text-2:#cbd5e1; --text-3:#64748b; --accent:#fb7185; --code:rgba(2,6,23,0.5); } }
+:root[data-theme="dark"] { --bg:#0b1120; --panel:rgba(30,41,59,0.5); --border:rgba(148,163,184,0.12); --text:#f1f5f9; --text-2:#cbd5e1; --text-3:#64748b; --accent:#fb7185; --code:rgba(2,6,23,0.5); }
+:root[data-theme="light"] { --bg:#f8fafc; --panel:rgba(255,255,255,0.72); --border:rgba(15,23,42,0.08); --text:#0f172a; --text-2:#475569; --text-3:#94a3b8; --accent:#e11d48; --code:rgba(15,23,42,0.04); }
+body { background: var(--bg); color: var(--text); font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
+.glass { background: var(--panel); border: 1px solid var(--border); backdrop-filter: blur(12px); }
+.trace { background: var(--code); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; overflow-x: auto; }
+</style>
+
+<div class="min-h-screen px-5 py-8 md:px-10">
+  <div class="max-w-5xl mx-auto">
+
+    <a href="/dashboard?project={{ projectId }}" class="inline-flex items-center gap-1.5 text-sm mb-6 hover:opacity-80" style="color: var(--text-2)">
+      <span>&larr;</span> Back to issues
+    </a>
+
+    @if (!issue)
+      <div class="glass rounded-xl px-5 py-12 text-center">
+        <div class="text-4xl mb-3">🔍</div>
+        <div class="font-semibold mb-1">Issue not found</div>
+        <div class="text-sm" style="color: var(--text-3)">
+          @if (!live)
+            Waiting for data. Provision Postgres and make sure the issue id is correct.
+          @else
+            No issue matches <span class="font-mono">{{ issueId }}</span>.
+          @endif
+        </div>
+      </div>
+    @else
+
+      <header class="mb-6">
+        <div class="flex items-start gap-3 mb-3">
+          <span class="w-1.5 rounded-full shrink-0 self-stretch" style="background: {{ levelColor(issue.level) }}; min-height: 2.5rem"></span>
+          <div class="min-w-0 flex-1">
+            <h1 class="text-xl md:text-2xl font-bold tracking-tight break-words">{{ issue.title }}</h1>
+            <p class="text-sm mt-1 font-mono truncate" style="color: var(--text-3)">{{ issue.culprit || issue.error_type }}</p>
+          </div>
+          <span class="shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider glass"
+                style="color: {{ isResolved ? '#22c55e' : (isIgnored ? 'var(--text-3)' : 'var(--accent)') }}">{{ status }}</span>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          @if (isResolved)
+            <form method="POST" action="/issue/{{ issue.id }}/status?to=unresolved">
+              <button type="submit" class="px-3 py-1.5 rounded-lg text-sm font-medium glass hover:opacity-80" style="color: var(--text-2)">Reopen</button>
+            </form>
+          @else
+            <form method="POST" action="/issue/{{ issue.id }}/status?to=resolved">
+              <button type="submit" class="px-3 py-1.5 rounded-lg text-sm font-semibold glass hover:opacity-80" style="color: #22c55e; border-color: rgba(34,197,94,0.4)">✓ Resolve</button>
+            </form>
+          @endif
+          @if (isIgnored)
+            <form method="POST" action="/issue/{{ issue.id }}/status?to=unresolved">
+              <button type="submit" class="px-3 py-1.5 rounded-lg text-sm font-medium glass hover:opacity-80" style="color: var(--text-2)">Unignore</button>
+            </form>
+          @else
+            <form method="POST" action="/issue/{{ issue.id }}/status?to=ignored">
+              <button type="submit" class="px-3 py-1.5 rounded-lg text-sm font-medium glass hover:opacity-80" style="color: var(--text-2)">Ignore</button>
+            </form>
+          @endif
+        </div>
+      </header>
+
+      <div class="grid gap-4 mb-6" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr))">
+        @foreach (metaRows as m)
+          <div class="glass rounded-xl px-4 py-3">
+            <div class="text-xs font-medium uppercase tracking-wider mb-1" style="color: var(--text-3)">{{ m.label }}</div>
+            <div class="text-sm font-semibold {{ m.mono ? 'font-mono truncate' : '' }}">{{ m.value }}</div>
+          </div>
+        @endforeach
+      </div>
+
+      @if (stack)
+        <div class="glass rounded-xl overflow-hidden mb-6">
+          <div class="px-5 py-3 border-b text-sm font-semibold uppercase tracking-wider" style="color: var(--text-3); border-color: var(--border)">Stack trace</div>
+          <div class="trace text-xs leading-relaxed px-5 py-4" style="color: var(--text-2)">{{ stack }}</div>
+        </div>
+      @endif
+
+      @if (userCtx || extra)
+        <div class="grid gap-4 mb-6" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr))">
+          @if (userCtx)
+            <div class="glass rounded-xl overflow-hidden">
+              <div class="px-5 py-3 border-b text-sm font-semibold uppercase tracking-wider" style="color: var(--text-3); border-color: var(--border)">User</div>
+              <div class="trace text-xs leading-relaxed px-5 py-4" style="color: var(--text-2)">{{ JSON.stringify(userCtx, null, 2) }}</div>
+            </div>
+          @endif
+          @if (extra)
+            <div class="glass rounded-xl overflow-hidden">
+              <div class="px-5 py-3 border-b text-sm font-semibold uppercase tracking-wider" style="color: var(--text-3); border-color: var(--border)">Context</div>
+              <div class="trace text-xs leading-relaxed px-5 py-4" style="color: var(--text-2)">{{ JSON.stringify(extra, null, 2) }}</div>
+            </div>
+          @endif
+        </div>
+      @endif
+
+      <div class="glass rounded-xl overflow-hidden">
+        <div class="px-5 py-3 border-b text-sm font-semibold uppercase tracking-wider" style="color: var(--text-3); border-color: var(--border)">Recent events ({{ events.length }})</div>
+        @forelse (events as ev)
+          <div class="flex items-center gap-4 px-5 py-3 border-b" style="border-color: var(--border)">
+            <span class="w-2 h-2 rounded-full shrink-0" style="background: {{ levelColor(ev.severity) }}"></span>
+            <div class="min-w-0 flex-1">
+              <div class="text-sm truncate">{{ ev.url || ev.environment || 'event' }}</div>
+              <div class="text-xs font-mono truncate" style="color: var(--text-3)">
+                {{ [ev.browser, ev.os, ev.framework, ev.release].filter(Boolean).join(' · ') || ev.category || '-' }}
+              </div>
+            </div>
+            <div class="text-right shrink-0">
+              <div class="text-xs tabular-nums" style="color: var(--text-2)">{{ fromNow(ev.timestamp) }}</div>
+              <div class="text-xs" style="color: var(--text-3)">{{ ev.environment || '-' }}</div>
+            </div>
+          </div>
+        @empty
+          <div class="px-5 py-12 text-center text-sm" style="color: var(--text-3)">No events recorded yet.</div>
+        @endforelse
+      </div>
+
+    @endif
+
+    <footer class="mt-10 text-center text-xs" style="color: var(--text-3)">
+      Error tracking · powered by Stacks + Postgres · bughq.org
+    </footer>
+
+  </div>
+</div>
