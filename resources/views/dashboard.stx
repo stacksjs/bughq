@@ -194,3 +194,20 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
 
   </div>
 </div>
+
+<!-- Client auth guard: redirect to /login when there is no token, and add a
+     logout control. Plain pass-through script (stx client hydration is not
+     available on these served pages). -->
+<script>
+(function () {
+  if (!localStorage.getItem('token')) { window.location.replace('/login'); return }
+  const btn = document.createElement('button')
+  btn.textContent = 'Log out'
+  btn.style.cssText = 'position:fixed;top:16px;right:18px;font:500 13px/1 var(--sans,ui-sans-serif);padding:8px 13px;border-radius:9px;border:1px solid var(--border,rgba(148,163,184,0.2));background:var(--panel,#fff);color:var(--text-2,#555);cursor:pointer;z-index:60'
+  btn.addEventListener('click', function () {
+    localStorage.removeItem('token'); localStorage.removeItem('user')
+    window.location.assign('/login')
+  })
+  document.body.appendChild(btn)
+})()
+</script>

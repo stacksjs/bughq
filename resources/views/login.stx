@@ -1,0 +1,91 @@
+<script server>
+const meta = { title: 'Sign in - bughq', description: 'Sign in to bughq error tracking.' }
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+:root {
+  --bg: #fbfbfd; --panel: #ffffff; --border: rgba(15,23,42,0.09);
+  --text: #0b0f19; --text-2: #4b5565; --text-3: #97a1b2; --accent: #e11d48;
+  --sans: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif; --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #090b11; --panel: #10131c; --border: rgba(148,163,184,0.12);
+    --text: #f3f5f9; --text-2: #b3bccb; --text-3: #667085; --accent: #fb7185; }
+}
+:root[data-theme="dark"] { --bg: #090b11; --panel: #10131c; --border: rgba(148,163,184,0.12);
+  --text: #f3f5f9; --text-2: #b3bccb; --text-3: #667085; --accent: #fb7185; }
+:root[data-theme="light"] { --bg: #fbfbfd; --panel: #ffffff; --border: rgba(15,23,42,0.09);
+  --text: #0b0f19; --text-2: #4b5565; --text-3: #97a1b2; --accent: #e11d48; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+.wordmark { font-weight: 700; letter-spacing: -0.03em; }
+.field { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; color: var(--text); }
+.field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
+.btn { background: var(--accent); color: #fff; border-radius: 10px; transition: transform 0.12s ease, opacity 0.15s ease; }
+.btn:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
+.btn:active { transform: translateY(1px); }
+.btn[disabled] { opacity: 0.6; cursor: default; }
+.err { background: color-mix(in srgb, #ef4444 12%, transparent); color: #ef4444; }
+</style>
+
+<div class="min-h-[100dvh] flex items-center justify-center px-5 py-12">
+  <div class="w-full max-w-sm">
+    <div class="text-center mb-8">
+      <a href="/" class="wordmark text-2xl">bughq</a>
+      <p class="text-sm mt-2" style="color: var(--text-3)">Sign in to your account</p>
+    </div>
+
+    <form id="login-form" class="space-y-4">
+      <div id="login-error" class="err text-sm rounded-lg px-3 py-2" style="display:none"></div>
+
+      <div>
+        <label class="block text-xs font-medium mb-1.5" style="color: var(--text-2)">Email</label>
+        <input name="email" type="email" required autocomplete="email" placeholder="you@example.com" class="field w-full px-3.5 py-2.5 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1.5" style="color: var(--text-2)">Password</label>
+        <input name="password" type="password" required autocomplete="current-password" placeholder="••••••••" class="field w-full px-3.5 py-2.5 text-sm">
+      </div>
+
+      <button id="login-btn" type="submit" class="btn w-full py-2.5 text-sm font-semibold">Sign in</button>
+    </form>
+
+    <p class="text-center text-sm mt-6" style="color: var(--text-3)">
+      No account?
+      <a href="/register" class="font-medium" style="color: var(--accent)">Create one</a>
+    </p>
+  </div>
+</div>
+
+<!-- Plain pass-through <script> (native DOM) — see register.stx for rationale. -->
+<script>
+(function () {
+  const form = document.getElementById('login-form')
+  const errEl = document.getElementById('login-error')
+  const btn = document.getElementById('login-btn')
+  const showErr = (m) => { errEl.textContent = m; errEl.style.display = '' }
+  const reset = () => { btn.disabled = false; btn.textContent = 'Sign in' }
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault()
+    errEl.style.display = 'none'
+    btn.disabled = true; btn.textContent = 'Signing in…'
+    try {
+      const res = await fetch('/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: form.elements.email.value, password: form.elements.password.value }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { showErr(data.message || 'Invalid email or password.'); reset(); return }
+      localStorage.setItem('token', data.token || data.access_token || '')
+      if (data.user) localStorage.setItem('user', JSON.stringify(data.user))
+      window.location.assign('/dashboard')
+    } catch (_e) {
+      showErr('Something went wrong. Please try again.'); reset()
+    }
+  })
+})()
+</script>

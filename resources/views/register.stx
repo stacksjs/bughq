@@ -1,0 +1,105 @@
+<script server>
+const meta = { title: 'Create your account - bughq', description: 'Sign up for bughq error tracking.' }
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+:root {
+  --bg: #fbfbfd; --panel: #ffffff; --border: rgba(15,23,42,0.09);
+  --text: #0b0f19; --text-2: #4b5565; --text-3: #97a1b2; --accent: #e11d48;
+  --sans: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif; --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #090b11; --panel: #10131c; --border: rgba(148,163,184,0.12);
+    --text: #f3f5f9; --text-2: #b3bccb; --text-3: #667085; --accent: #fb7185; }
+}
+:root[data-theme="dark"] { --bg: #090b11; --panel: #10131c; --border: rgba(148,163,184,0.12);
+  --text: #f3f5f9; --text-2: #b3bccb; --text-3: #667085; --accent: #fb7185; }
+:root[data-theme="light"] { --bg: #fbfbfd; --panel: #ffffff; --border: rgba(15,23,42,0.09);
+  --text: #0b0f19; --text-2: #4b5565; --text-3: #97a1b2; --accent: #e11d48; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+.wordmark { font-weight: 700; letter-spacing: -0.03em; }
+.field { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; color: var(--text); }
+.field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
+.btn { background: var(--accent); color: #fff; border-radius: 10px; transition: transform 0.12s ease, opacity 0.15s ease; }
+.btn:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
+.btn:active { transform: translateY(1px); }
+.btn[disabled] { opacity: 0.6; cursor: default; }
+.err { background: color-mix(in srgb, #ef4444 12%, transparent); color: #ef4444; }
+</style>
+
+<div class="min-h-[100dvh] flex items-center justify-center px-5 py-12">
+  <div class="w-full max-w-sm">
+    <div class="text-center mb-8">
+      <a href="/" class="wordmark text-2xl">bughq</a>
+      <p class="text-sm mt-2" style="color: var(--text-3)">Create your account</p>
+    </div>
+
+    <form id="signup-form" class="space-y-4">
+      <div id="signup-error" class="err text-sm rounded-lg px-3 py-2" style="display:none"></div>
+
+      <div>
+        <label class="block text-xs font-medium mb-1.5" style="color: var(--text-2)">Name</label>
+        <input name="name" type="text" required autocomplete="name" placeholder="Ada Lovelace" class="field w-full px-3.5 py-2.5 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1.5" style="color: var(--text-2)">Email</label>
+        <input name="email" type="email" required autocomplete="email" placeholder="you@example.com" class="field w-full px-3.5 py-2.5 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-medium mb-1.5" style="color: var(--text-2)">Password</label>
+        <input name="password" type="password" required autocomplete="new-password" placeholder="At least 8 characters" class="field w-full px-3.5 py-2.5 text-sm">
+      </div>
+
+      <button id="signup-btn" type="submit" class="btn w-full py-2.5 text-sm font-semibold">Create account</button>
+    </form>
+
+    <p class="text-center text-sm mt-6" style="color: var(--text-3)">
+      Already have an account?
+      <a href="/login" class="font-medium" style="color: var(--accent)">Sign in</a>
+    </p>
+  </div>
+</div>
+
+<!--
+  Plain pass-through <script> (native DOM), intentionally NOT an stx
+  <script client> block: stx's client-directive hydration isn't available on
+  these standalone served pages, so the token-auth form is wired directly. It
+  POSTs same-origin /register (proxied to the API), stores the bearer token,
+  and redirects to the dashboard.
+-->
+<script>
+(function () {
+  const form = document.getElementById('signup-form')
+  const errEl = document.getElementById('signup-error')
+  const btn = document.getElementById('signup-btn')
+  const showErr = (m) => { errEl.textContent = m; errEl.style.display = '' }
+  const reset = () => { btn.disabled = false; btn.textContent = 'Create account' }
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const name = form.elements.name.value
+    const email = form.elements.email.value
+    const password = form.elements.password.value
+    if (password.length < 8) { showErr('Password must be at least 8 characters.'); return }
+    errEl.style.display = 'none'
+    btn.disabled = true; btn.textContent = 'Creating account…'
+    try {
+      const res = await fetch('/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { showErr(data.message || 'Could not create the account.'); reset(); return }
+      localStorage.setItem('token', data.token || data.access_token || '')
+      if (data.user) localStorage.setItem('user', JSON.stringify(data.user))
+      window.location.assign('/dashboard')
+    } catch (_e) {
+      showErr('Something went wrong. Please try again.'); reset()
+    }
+  })
+})()
+</script>
