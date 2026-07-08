@@ -38,7 +38,16 @@ async function loadData() {
 }
 
 try {
-  await Promise.race([loadData(), new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 1500))])
+  // A host server may pre-fetch the data and inject it as `preloaded`;
+  // otherwise the view queries Postgres itself.
+  if (typeof preloaded !== 'undefined' && preloaded) {
+    issues = preloaded.issues ?? []
+    counts = preloaded.counts ?? counts
+    live = true
+  }
+  else {
+    await Promise.race([loadData(), new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 5000))])
+  }
 }
 catch {
   live = false
