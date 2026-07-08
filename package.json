@@ -48,7 +48,6 @@
     "key:generate": "./buddy key:generate",
     "commit": "./buddy commit",
     "release": "./buddy release",
-    "release:patch": "bunx --bun bumpx patch --commit --tag --push --yes",
     "release:patch": "./buddy release --bump patch",
     "release:minor": "./buddy release --bump minor",
     "release:major": "./buddy release --bump major",
