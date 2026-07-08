@@ -14,7 +14,7 @@ export default {
   env: env.APP_ENV ?? 'local',
   url: env.APP_URL ?? 'stacks.localhost',
   redirectUrls: ['stacksjs.com'],
-  debug: env.DEBUG ?? false,
+  debug: String(env.DEBUG) === 'true',
   key: env.APP_KEY,
 
   maintenanceMode: env.APP_MAINTENANCE ?? false,

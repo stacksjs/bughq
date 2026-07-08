@@ -26,7 +26,7 @@ async function loadData() {
     ? ['project_id = $1', [projectId]]
     : ['project_id = $1 AND status = $2', [projectId, statusFilter]]
   issues = (await db.unsafe(
-    `SELECT id, title, culprit, error_type, level, status, count, last_seen FROM issues WHERE ${where[0]} ORDER BY last_seen DESC LIMIT 100`,
+    `SELECT id, title, culprit, error_type, level, status, count, users_affected, last_seen FROM issues WHERE ${where[0]} ORDER BY last_seen DESC LIMIT 100`,
     where[1],
   )) ?? []
   const c = (await db.unsafe(
@@ -53,14 +53,22 @@ catch {
   live = false
 }
 
+// Severity drives the one accent-adjacent semantic color used on the list rail.
+// These are real state colors, not decoration.
 function levelColor(level) {
-  if (level === 'fatal') return '#ef4444'
-  if (level === 'error') return '#f97316'
-  if (level === 'warning') return '#eab308'
+  if (level === 'fatal') return '#f43f5e'
+  if (level === 'error') return '#fb7185'
+  if (level === 'warning') return '#f59e0b'
   return '#64748b'
 }
+function levelLabel(level) {
+  if (level === 'fatal') return 'Fatal'
+  if (level === 'error') return 'Error'
+  if (level === 'warning') return 'Warning'
+  return 'Info'
+}
 function fromNow(iso) {
-  if (!iso) return '—'
+  if (!iso) return 'never'
   const s = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000))
   if (s < 60) return s + 's ago'
   if (s < 3600) return Math.floor(s / 60) + 'm ago'
@@ -68,80 +76,120 @@ function fromNow(iso) {
   return Math.floor(s / 86400) + 'd ago'
 }
 
-const kpiCards = [
-  { label: 'Open Issues', value: counts.unresolved.toLocaleString(), icon: '🐛' },
-  { label: 'Total Issues', value: counts.total.toLocaleString(), icon: '📋' },
-  { label: 'Events', value: counts.events.toLocaleString(), icon: '⚡' },
+const stats = [
+  { label: 'Open issues', value: counts.unresolved.toLocaleString() },
+  { label: 'Total issues', value: counts.total.toLocaleString() },
+  { label: 'Events captured', value: counts.events.toLocaleString() },
 ]
 </script>
 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+
 <style>
-:root { --bg:#f8fafc; --panel:rgba(255,255,255,0.72); --border:rgba(15,23,42,0.08); --text:#0f172a; --text-2:#475569; --text-3:#94a3b8; --accent:#e11d48; }
-@media (prefers-color-scheme: dark) { :root { --bg:#0b1120; --panel:rgba(30,41,59,0.5); --border:rgba(148,163,184,0.12); --text:#f1f5f9; --text-2:#cbd5e1; --text-3:#64748b; --accent:#fb7185; } }
-:root[data-theme="dark"] { --bg:#0b1120; --panel:rgba(30,41,59,0.5); --border:rgba(148,163,184,0.12); --text:#f1f5f9; --text-2:#cbd5e1; --text-3:#64748b; --accent:#fb7185; }
-:root[data-theme="light"] { --bg:#f8fafc; --panel:rgba(255,255,255,0.72); --border:rgba(15,23,42,0.08); --text:#0f172a; --text-2:#475569; --text-3:#94a3b8; --accent:#e11d48; }
-body { background: var(--bg); color: var(--text); font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
-.glass { background: var(--panel); border: 1px solid var(--border); backdrop-filter: blur(12px); }
+/* bughq — Space Grotesk display + JetBrains Mono for numerics/code.
+   One accent (rose), off-black/off-white, auto light+dark, radius lock 12px. */
+:root {
+  --bg: #fbfbfd; --panel: #ffffff; --border: rgba(15,23,42,0.09);
+  --text: #0b0f19; --text-2: #4b5565; --text-3: #97a1b2; --accent: #e11d48;
+  --rail: rgba(225,29,72,0.14); --sans: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #090b11; --panel: #10131c; --border: rgba(148,163,184,0.12);
+    --text: #f3f5f9; --text-2: #b3bccb; --text-3: #667085; --accent: #fb7185; --rail: rgba(251,113,133,0.16); }
+}
+:root[data-theme="dark"] { --bg: #090b11; --panel: #10131c; --border: rgba(148,163,184,0.12);
+  --text: #f3f5f9; --text-2: #b3bccb; --text-3: #667085; --accent: #fb7185; --rail: rgba(251,113,133,0.16); }
+:root[data-theme="light"] { --bg: #fbfbfd; --panel: #ffffff; --border: rgba(15,23,42,0.09);
+  --text: #0b0f19; --text-2: #4b5565; --text-3: #97a1b2; --accent: #e11d48; --rail: rgba(225,29,72,0.14); }
+
+body { background: var(--bg); color: var(--text); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+.mono { font-family: var(--mono); font-feature-settings: 'tnum' 1; }
+.wordmark { font-family: var(--sans); font-weight: 700; letter-spacing: -0.03em; }
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; }
+.row-link { transition: background-color 0.15s ease; }
+.row-link:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.pill { border-radius: 999px; transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease; }
+.reveal { opacity: 0; transform: translateY(10px); animation: reveal 0.5s cubic-bezier(0.16,1,0.3,1) forwards; }
+@keyframes reveal { to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .reveal { animation: none; opacity: 1; transform: none; } }
 </style>
 
-<div class="min-h-screen px-5 py-8 md:px-10">
-  <div class="max-w-6xl mx-auto">
+<div class="min-h-[100dvh] px-5 py-10 md:px-10">
+  <div class="max-w-5xl mx-auto">
 
-    <header class="flex flex-wrap items-center justify-between gap-4 mb-8">
+    <header class="flex flex-wrap items-end justify-between gap-5 mb-10">
       <div>
-        <h1 class="text-2xl font-bold tracking-tight flex items-center gap-2"><span>🐛</span> bughq</h1>
-        <p class="text-sm" style="color: var(--text-3)">Project <span class="font-mono">{{ projectId }}</span></p>
+        <h1 class="wordmark text-2xl md:text-[28px] leading-none">bughq</h1>
+        <p class="text-sm mt-2" style="color: var(--text-3)">
+          Project <span class="mono" style="color: var(--text-2)">{{ projectId }}</span>
+        </p>
       </div>
-      <div class="flex items-center gap-2">
+      <nav class="flex items-center gap-1.5">
         @foreach (filters as f)
           <a href="?project={{ projectId }}&status={{ f.key }}"
-             class="px-3 py-1.5 rounded-lg text-sm font-medium glass"
-             style="{{ f.key === statusFilter ? 'color: var(--accent); border-color: var(--accent)' : 'color: var(--text-2)' }}">{{ f.label }}</a>
+             class="pill px-3.5 py-1.5 text-sm font-medium border"
+             style="{{ f.key === statusFilter ? 'color: #fff; background: var(--accent); border-color: var(--accent)' : 'color: var(--text-2); border-color: var(--border)' }}">{{ f.label }}</a>
         @endforeach
-      </div>
+      </nav>
     </header>
 
     @if (!live)
-      <div class="glass rounded-xl px-4 py-3 mb-6 text-sm" style="color: var(--text-2)">
-        <span class="font-semibold">Waiting for data.</span>
-        Provision Postgres (via Pantry) and drop the <span class="font-mono">/sdk.js</span> snippet on your app —
-        captured errors group into issues here.
+      <div class="panel px-4 py-3 mb-8 text-sm reveal" style="color: var(--text-2)">
+        <span class="font-semibold" style="color: var(--text)">Waiting for data.</span>
+        Provision Postgres and drop the <span class="mono" style="color: var(--accent)">/sdk.js</span> snippet on your app. Captured errors group into issues here.
       </div>
     @endif
 
-    <div class="grid grid-cols-3 gap-4 mb-6">
-      @foreach (kpiCards as kpi)
-        <div class="glass rounded-xl p-5">
-          <div class="flex items-center justify-between mb-3">
-            <span class="text-xs font-medium uppercase tracking-wider" style="color: var(--text-3)">{{ kpi.label }}</span>
-            <span class="text-lg">{{ kpi.icon }}</span>
-          </div>
-          <div class="text-3xl font-bold tracking-tight">{{ kpi.value }}</div>
+    <!-- Stats: hairline-separated, mono numerics, no heavy card chrome -->
+    <div class="panel grid grid-cols-3 divide-x mb-8 reveal" style="border-color: var(--border)">
+      @foreach (stats as s)
+        <div class="px-5 py-5" style="border-color: var(--border)">
+          <div class="text-xs font-medium uppercase tracking-wider mb-2" style="color: var(--text-3)">{{ s.label }}</div>
+          <div class="mono text-3xl font-semibold tracking-tight">{{ s.value }}</div>
         </div>
       @endforeach
     </div>
 
-    <div class="glass rounded-xl overflow-hidden">
-      <div class="px-5 py-3 border-b text-sm font-semibold uppercase tracking-wider" style="color: var(--text-3); border-color: var(--border)">Issues</div>
+    <section class="panel overflow-hidden reveal">
+      <div class="flex items-center justify-between px-5 py-3.5 border-b" style="border-color: var(--border)">
+        <span class="text-xs font-semibold uppercase tracking-wider" style="color: var(--text-3)">Issues</span>
+        <span class="mono text-xs" style="color: var(--text-3)">{{ issues.length }} shown</span>
+      </div>
+
       @forelse (issues as issue)
-        <a href="/issue/{{ issue.id }}" class="flex items-center gap-4 px-5 py-3 border-b transition-colors hover:opacity-80" style="border-color: var(--border)">
-          <span class="w-1.5 h-10 rounded-full shrink-0" style="background: {{ levelColor(issue.level) }}"></span>
+        <a href="/issue/{{ issue.id }}" class="row-link flex items-center gap-4 px-5 py-4 border-b" style="border-color: var(--border)">
+          <span class="w-1 h-11 rounded-full shrink-0" style="background: {{ levelColor(issue.level) }}"></span>
           <div class="min-w-0 flex-1">
-            <div class="font-medium truncate">{{ issue.title }}</div>
-            <div class="text-xs font-mono truncate" style="color: var(--text-3)">{{ issue.culprit || issue.error_type }}</div>
+            <div class="font-medium truncate" style="letter-spacing: -0.01em">{{ issue.title }}</div>
+            <div class="flex items-center gap-2 mt-1 text-xs" style="color: var(--text-3)">
+              <span class="font-semibold uppercase tracking-wide" style="color: {{ levelColor(issue.level) }}">{{ levelLabel(issue.level) }}</span>
+              <span aria-hidden="true">/</span>
+              <span class="mono truncate">{{ issue.culprit || issue.error_type }}</span>
+            </div>
           </div>
           <div class="text-right shrink-0">
-            <div class="tabular-nums font-semibold">{{ Number(issue.count).toLocaleString() }}</div>
+            <div class="mono font-semibold tabular-nums">{{ Number(issue.count).toLocaleString() }}</div>
+            <div class="text-xs mt-0.5" style="color: var(--text-3)">
+              <span class="mono">{{ Number(issue.users_affected || 0).toLocaleString() }}</span> users
+            </div>
+          </div>
+          <div class="hidden sm:block text-right shrink-0 w-20">
             <div class="text-xs" style="color: var(--text-3)">{{ fromNow(issue.last_seen) }}</div>
           </div>
         </a>
       @empty
-        <div class="px-5 py-12 text-center text-sm" style="color: var(--text-3)">No {{ statusFilter === 'all' ? '' : statusFilter }} issues 🎉</div>
+        <div class="px-5 py-16 text-center">
+          <div class="text-base font-medium mb-1">No {{ statusFilter === 'all' ? '' : statusFilter }} issues</div>
+          <div class="text-sm" style="color: var(--text-3)">Nothing to triage right now. New errors land here as they are captured.</div>
+        </div>
       @endforelse
-    </div>
+    </section>
 
-    <footer class="mt-10 text-center text-xs" style="color: var(--text-3)">
-      Error tracking · powered by Stacks + Postgres · bughq.org
+    <footer class="mt-12 text-center text-xs" style="color: var(--text-3)">
+      Error tracking on Stacks and Postgres. <span class="mono">bughq.org</span>
     </footer>
 
   </div>
