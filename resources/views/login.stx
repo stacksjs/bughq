@@ -1,5 +1,39 @@
-<script server>
-const meta = { title: 'Sign in - bughq', description: 'Sign in to bughq error tracking.' }
+<script client>
+// Token auth via stx client directives. Uncontrolled inputs read from the submit
+// event; error/loading are signals.
+const error = state('')
+const loading = state(false)
+
+async function handleSubmit(e) {
+  e.preventDefault()
+  if (loading())
+    return
+  const form = e.target
+  loading.set(true)
+  error.set('')
+  try {
+    const res = await fetch('/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: form.elements.email.value, password: form.elements.password.value }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (!res.ok) {
+      error.set(data.message || 'Invalid email or password.')
+      return
+    }
+    localStorage.setItem('token', data.token || data.access_token || '')
+    if (data.user)
+      localStorage.setItem('user', JSON.stringify(data.user))
+    navigate('/dashboard')
+  }
+  catch {
+    error.set('Something went wrong. Please try again.')
+  }
+  finally {
+    loading.set(false)
+  }
+}
 </script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,7 +61,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
 .btn { background: var(--accent); color: #fff; border-radius: 10px; transition: transform 0.12s ease, opacity 0.15s ease; }
 .btn:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
 .btn:active { transform: translateY(1px); }
-.btn[disabled] { opacity: 0.6; cursor: default; }
+.btn:disabled { opacity: 0.6; cursor: default; }
 .err { background: color-mix(in srgb, #ef4444 12%, transparent); color: #ef4444; }
 </style>
 
@@ -38,8 +72,10 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
       <p class="text-sm mt-2" style="color: var(--text-3)">Sign in to your account</p>
     </div>
 
-    <form id="login-form" class="space-y-4">
-      <div id="login-error" class="err text-sm rounded-lg px-3 py-2" style="display:none"></div>
+    <form @submit="handleSubmit" class="space-y-4">
+      @if (error())
+        <div class="err text-sm rounded-lg px-3 py-2">{{ error() }}</div>
+      @endif
 
       <div>
         <label class="block text-xs font-medium mb-1.5" style="color: var(--text-2)">Email</label>
@@ -50,7 +86,9 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
         <input name="password" type="password" required autocomplete="current-password" placeholder="••••••••" class="field w-full px-3.5 py-2.5 text-sm">
       </div>
 
-      <button id="login-btn" type="submit" class="btn w-full py-2.5 text-sm font-semibold">Sign in</button>
+      <button type="submit" :disabled="loading()" class="btn w-full py-2.5 text-sm font-semibold">
+        {{ loading() ? 'Signing in…' : 'Sign in' }}
+      </button>
     </form>
 
     <p class="text-center text-sm mt-6" style="color: var(--text-3)">
@@ -59,33 +97,3 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
     </p>
   </div>
 </div>
-
-<!-- Plain pass-through <script> (native DOM) — see register.stx for rationale. -->
-<script>
-(function () {
-  const form = document.getElementById('login-form')
-  const errEl = document.getElementById('login-error')
-  const btn = document.getElementById('login-btn')
-  const showErr = (m) => { errEl.textContent = m; errEl.style.display = '' }
-  const reset = () => { btn.disabled = false; btn.textContent = 'Sign in' }
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault()
-    errEl.style.display = 'none'
-    btn.disabled = true; btn.textContent = 'Signing in…'
-    try {
-      const res = await fetch('/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: form.elements.email.value, password: form.elements.password.value }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (!res.ok) { showErr(data.message || 'Invalid email or password.'); reset(); return }
-      localStorage.setItem('token', data.token || data.access_token || '')
-      if (data.user) localStorage.setItem('user', JSON.stringify(data.user))
-      window.location.assign('/dashboard')
-    } catch (_e) {
-      showErr('Something went wrong. Please try again.'); reset()
-    }
-  })
-})()
-</script>

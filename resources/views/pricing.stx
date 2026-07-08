@@ -1,7 +1,34 @@
-<script server>
-const meta = { title: 'Pricing - bughq', description: 'bughq plans: a free tier and Pro.' }
-const freeFeatures = ['1 project', '5k errors / mo', '30-day retention', 'Community support']
-const proFeatures = ['Unlimited projects', 'Unlimited errors', 'Full retention', 'Priority support']
+<script client>
+// Pricing / upgrade via stx client directives. Interval + state are signals; the
+// Upgrade button starts a Stripe Checkout (external redirect via location).
+const interval = state('monthly')
+const err = state('')
+const loading = state(false)
+
+function pick(v) { interval.set(v) }
+
+async function upgrade() {
+  const token = localStorage.getItem('token')
+  if (!token) { navigate('/login'); return }
+  loading.set(true)
+  err.set('')
+  try {
+    const res = await fetch('/payments/checkout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+      body: JSON.stringify({ interval: interval() }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (res.ok && data.url) { location.assign(data.url); return }
+    err.set(data.error || 'Checkout is not available yet.')
+  }
+  catch {
+    err.set('Something went wrong. Please try again.')
+  }
+  finally {
+    loading.set(false)
+  }
+}
 </script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -9,8 +36,7 @@ const proFeatures = ['Unlimited projects', 'Unlimited errors', 'Full retention',
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
 
 <style>
-:root { --bg:#fbfbfd; --panel:#ffffff; --border:rgba(15,23,42,0.09); --text:#0b0f19; --text-2:#4b5565; --text-3:#97a1b2; --accent:#e11d48;
-  --sans:'Space Grotesk', ui-sans-serif, system-ui, sans-serif; }
+:root { --bg:#fbfbfd; --panel:#ffffff; --border:rgba(15,23,42,0.09); --text:#0b0f19; --text-2:#4b5565; --text-3:#97a1b2; --accent:#e11d48; --sans:'Space Grotesk', ui-sans-serif, system-ui, sans-serif; }
 @media (prefers-color-scheme: dark) { :root { --bg:#090b11; --panel:#10131c; --border:rgba(148,163,184,0.12); --text:#f3f5f9; --text-2:#b3bccb; --text-3:#667085; --accent:#fb7185; } }
 :root[data-theme="dark"] { --bg:#090b11; --panel:#10131c; --border:rgba(148,163,184,0.12); --text:#f3f5f9; --text-2:#b3bccb; --text-3:#667085; --accent:#fb7185; }
 :root[data-theme="light"] { --bg:#fbfbfd; --panel:#ffffff; --border:rgba(15,23,42,0.09); --text:#0b0f19; --text-2:#4b5565; --text-3:#97a1b2; --accent:#e11d48; }
@@ -18,16 +44,16 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
 .wordmark { font-weight: 700; letter-spacing: -0.03em; }
 .card { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; }
 .card-pro { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); box-shadow: 0 12px 40px color-mix(in srgb, var(--accent) 12%, transparent); }
-.btn { border-radius: 10px; transition: transform .12s ease, background-color .15s ease, opacity .15s ease; font-weight: 600; }
+.btn { border-radius: 10px; transition: transform .12s ease, opacity .15s ease; font-weight: 600; }
 .btn:active { transform: translateY(1px); }
 .btn-primary { background: var(--accent); color: #fff; }
-.btn-primary:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
-.btn-primary[disabled] { opacity: .6; cursor: default; }
+.btn-primary:disabled { opacity: .6; cursor: default; }
 .btn-ghost { border: 1px solid var(--border); color: var(--text-2); }
 .check { color: var(--accent); }
 .seg { border: 1px solid var(--border); border-radius: 999px; }
 .seg button { border-radius: 999px; cursor: pointer; background: transparent; color: var(--text-2); border: none; }
 .seg button.on { background: var(--accent); color: #fff; }
+.err { color: #ef4444; }
 </style>
 
 <div class="min-h-[100dvh] px-5 py-14 md:px-10">
@@ -37,8 +63,8 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
       <h1 class="wordmark text-3xl md:text-4xl mt-6" style="letter-spacing:-0.035em">Simple, honest pricing</h1>
       <p class="text-base mt-3" style="color: var(--text-3)">Start free. Upgrade when you outgrow it. Self-host free forever.</p>
       <div class="seg inline-flex items-center gap-1 p-1 mt-6 text-sm">
-        <button id="seg-monthly" class="on px-4 py-1.5 font-medium">Monthly</button>
-        <button id="seg-yearly" class="px-4 py-1.5 font-medium">Yearly <span style="opacity:.8">-17%</span></button>
+        <button @click="pick('monthly')" :class="interval() === 'monthly' ? 'on px-4 py-1.5 font-medium' : 'px-4 py-1.5 font-medium'">Monthly</button>
+        <button @click="pick('yearly')" :class="interval() === 'yearly' ? 'on px-4 py-1.5 font-medium' : 'px-4 py-1.5 font-medium'">Yearly <span style="opacity:.8">-17%</span></button>
       </div>
     </header>
 
@@ -48,9 +74,10 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
         <div class="mt-3"><span class="wordmark text-4xl">\$0</span><span class="text-sm" style="color: var(--text-3)"> / forever</span></div>
         <p class="text-sm mt-2" style="color: var(--text-2)">Everything you need to get started.</p>
         <ul class="mt-6 space-y-2.5 text-sm">
-          @foreach (freeFeatures as f)
-            <li class="flex items-center gap-2"><span class="check">✓</span> {{ f }}</li>
-          @endforeach
+          <li class="flex items-center gap-2"><span class="check">✓</span> 1 project</li>
+          <li class="flex items-center gap-2"><span class="check">✓</span> 5k errors / mo</li>
+          <li class="flex items-center gap-2"><span class="check">✓</span> 30-day retention</li>
+          <li class="flex items-center gap-2"><span class="check">✓</span> Community support</li>
         </ul>
         <a href="/register" class="btn btn-ghost w-full block text-center py-2.5 text-sm mt-7">Get started</a>
       </div>
@@ -58,58 +85,21 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
       <div class="card card-pro p-7">
         <div class="text-sm font-semibold uppercase tracking-wider" style="color: var(--accent)">Pro</div>
         <div class="mt-3">
-          <span class="wordmark text-4xl" id="price-amount">\$19</span><span class="text-sm" style="color: var(--text-3)" id="price-suffix"> / month</span>
+          <span class="wordmark text-4xl">{{ interval() === 'yearly' ? '\$190' : '\$19' }}</span><span class="text-sm" style="color: var(--text-3)">{{ interval() === 'yearly' ? ' / year' : ' / month' }}</span>
         </div>
         <p class="text-sm mt-2" style="color: var(--text-2)">For teams and sites that are growing.</p>
         <ul class="mt-6 space-y-2.5 text-sm">
-          @foreach (proFeatures as f)
-            <li class="flex items-center gap-2"><span class="check">✓</span> {{ f }}</li>
-          @endforeach
+          <li class="flex items-center gap-2"><span class="check">✓</span> Unlimited projects</li>
+          <li class="flex items-center gap-2"><span class="check">✓</span> Unlimited errors</li>
+          <li class="flex items-center gap-2"><span class="check">✓</span> Full retention</li>
+          <li class="flex items-center gap-2"><span class="check">✓</span> Priority support</li>
         </ul>
-        <button id="upgrade-btn" class="btn btn-primary w-full py-2.5 text-sm mt-7">Upgrade to Pro</button>
-        <p id="upgrade-note" class="text-xs text-center mt-3" style="color: var(--text-3)"></p>
+        <button @click="upgrade" :disabled="loading()" class="btn btn-primary w-full py-2.5 text-sm mt-7">{{ loading() ? 'Redirecting…' : 'Upgrade to Pro' }}</button>
+        @if (err())
+          <p class="err text-xs text-center mt-3">{{ err() }}</p>
+        @endif
       </div>
     </div>
     <p class="text-center text-xs mt-10" style="color: var(--text-3)">Prefer to self-host? bughq is open source and free to run yourself.</p>
   </div>
 </div>
-
-<script>
-(function () {
-  let interval = 'monthly'
-  const amount = document.getElementById('price-amount')
-  const suffix = document.getElementById('price-suffix')
-  const segM = document.getElementById('seg-monthly')
-  const segY = document.getElementById('seg-yearly')
-  const setInterval2 = (v) => {
-    interval = v
-    segM.classList.toggle('on', v === 'monthly')
-    segY.classList.toggle('on', v === 'yearly')
-    amount.textContent = v === 'yearly' ? '\$190' : '\$19'
-    suffix.textContent = v === 'yearly' ? ' / year' : ' / month'
-  }
-  segM.addEventListener('click', () => setInterval2('monthly'))
-  segY.addEventListener('click', () => setInterval2('yearly'))
-
-  const btn = document.getElementById('upgrade-btn')
-  const note = document.getElementById('upgrade-note')
-  btn.addEventListener('click', async () => {
-    const token = localStorage.getItem('token')
-    if (!token) { window.location.assign('/login'); return }
-    btn.disabled = true; btn.textContent = 'Redirecting to checkout…'; note.textContent = ''
-    try {
-      const res = await fetch('/payments/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
-        body: JSON.stringify({ interval }),
-      })
-      const data = await res.json().catch(() => ({}))
-      if (res.ok && data.url) { window.location.assign(data.url); return }
-      note.textContent = data.error || 'Checkout is not available yet.'
-    } catch (_e) {
-      note.textContent = 'Something went wrong. Please try again.'
-    }
-    btn.disabled = false; btn.textContent = 'Upgrade to Pro'
-  })
-})()
-</script>
