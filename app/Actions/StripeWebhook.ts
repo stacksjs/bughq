@@ -30,7 +30,9 @@ export default new Action({
     if (!secret)
       return response.json({ error: 'Webhook secret not configured' }, 400)
     try {
-      await Payment.processWebhook(raw, sig, { secret })
+      const result = await Payment.processWebhook(raw, sig, { secret })
+      if (!result?.success)
+        return response.json({ error: result?.error || 'Invalid signature' }, 400)
       return response.json({ received: true })
     }
     catch {
