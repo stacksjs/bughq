@@ -4,8 +4,11 @@
 // always renders even before a database is provisioned.
 const meta = { title: 'bughq — Issues', description: 'Error tracking' }
 
-const projectId = (typeof request !== 'undefined' && request?.query?.project) || 'demo'
-const statusFilter = (typeof request !== 'undefined' && request?.query?.status) || 'unresolved'
+// Query params reach server scripts via globalThis.__stxServeSearch (the dev
+// server stashes url.search there); there is no `request.query`.
+const query = new URLSearchParams((typeof globalThis !== 'undefined' && globalThis.__stxServeSearch) || '')
+const projectId = query.get('project') || 'demo'
+const statusFilter = query.get('status') || 'unresolved'
 
 const filters = [
   { key: 'unresolved', label: 'Unresolved' },
@@ -112,7 +115,7 @@ body { background: var(--bg); color: var(--text); font-family: ui-sans-serif, sy
     <div class="glass rounded-xl overflow-hidden">
       <div class="px-5 py-3 border-b text-sm font-semibold uppercase tracking-wider" style="color: var(--text-3); border-color: var(--border)">Issues</div>
       @forelse (issues as issue)
-        <a href="/issue?id={{ issue.id }}&project={{ projectId }}" class="flex items-center gap-4 px-5 py-3 border-b transition-colors hover:opacity-80" style="border-color: var(--border)">
+        <a href="/issue/{{ issue.id }}" class="flex items-center gap-4 px-5 py-3 border-b transition-colors hover:opacity-80" style="border-color: var(--border)">
           <span class="w-1.5 h-10 rounded-full shrink-0" style="background: {{ levelColor(issue.level) }}"></span>
           <div class="min-w-0 flex-1">
             <div class="font-medium truncate">{{ issue.title }}</div>

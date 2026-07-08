@@ -2,10 +2,11 @@
 // bughq issue detail. Reads one Issue + its recent ErrorEvents from Postgres
 // via db.unsafe (parameterized, schema-independent), raced against a short
 // timeout so the page always renders even before a database is provisioned.
-// Served at `/issue?id={issueId}` — the dashboard links here per row.
+// Served at `/issue/{id}` — the `[id]` path segment is injected as the global
+// `id` (the framework's dynamic-route convention, see orders/[id].stx).
 const meta = { title: 'bughq - Issue', description: 'Error tracking' }
 
-const issueId = (typeof request !== 'undefined' && request?.query?.id) || ''
+const issueId = (typeof id !== 'undefined' && id) || ''
 
 let issue = null
 let events = []
@@ -32,9 +33,7 @@ catch {
   live = false
 }
 
-const projectId = issue?.project_id
-  || (typeof request !== 'undefined' && request?.query?.project)
-  || 'demo'
+const projectId = issue?.project_id || 'demo'
 const latest = events[0] || null
 const stack = latest?.stack || ''
 
@@ -96,7 +95,7 @@ body { background: var(--bg); color: var(--text); font-family: ui-sans-serif, sy
 <div class="min-h-screen px-5 py-8 md:px-10">
   <div class="max-w-5xl mx-auto">
 
-    <a href="/dashboard?project={{ projectId }}" class="inline-flex items-center gap-1.5 text-sm mb-6 hover:opacity-80" style="color: var(--text-2)">
+    <a href="/dashboard" class="inline-flex items-center gap-1.5 text-sm mb-6 hover:opacity-80" style="color: var(--text-2)">
       <span>&larr;</span> Back to issues
     </a>
 
