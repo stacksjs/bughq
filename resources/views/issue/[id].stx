@@ -16,7 +16,26 @@ async function loadData() {
   if (!issueId)
     return
   const { db } = await import('@stacksjs/database')
-  issue = (await db.unsafe('SELECT * FROM issues WHERE id = $1 LIMIT 1', [issueId]))?.[0] ?? null
+  // Authenticate + owner-scope: an issue is only visible to the owner of the
+  // project it belongs to, so no tenant can read another's issue by id.
+  const token = (typeof requestContext !== 'undefined' && requestContext.cookie && requestContext.cookie('token')) || ''
+  let user = null
+  if (token) {
+    try {
+      const { Auth } = await import('@stacksjs/auth')
+      user = await Auth.getUserFromToken(token)
+    }
+    catch { user = null }
+  }
+  if (!user) {
+    live = true
+    return
+  }
+  issue = (await db.unsafe(
+    `SELECT i.* FROM issues i JOIN projects p ON p.id = i.project_id
+     WHERE i.id = $1 AND p.owner_id = $2 LIMIT 1`,
+    [issueId, Number(user.id)],
+  ))?.[0] ?? null
   if (issue) {
     events = (await db.unsafe(
       'SELECT * FROM error_events WHERE issue_id = $1 ORDER BY timestamp DESC LIMIT 25',
@@ -208,3 +227,16 @@ body { background: var(--bg); color: var(--text); font-family: ui-sans-serif, sy
 
   </div>
 </div>
+
+<!-- Client guard: require the bearer token and mirror it into the cookie the
+     server authenticates from (matches the dashboard). -->
+<script>
+(function () {
+  var t = localStorage.getItem('token')
+  if (!t) { window.location.replace('/login'); return }
+  if (!/(^|;)\s*token=/.test(document.cookie)) {
+    document.cookie = 'token=' + t + '; path=/; max-age=2592000; samesite=lax'
+    window.location.reload()
+  }
+})()
+</script>
