@@ -179,11 +179,12 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
         @else
           <span class="mono text-sm" style="color: var(--text-2)">{{ activeProject.name }}</span>
         @endif
+        <a href="/projects" class="pill px-3 py-1.5 text-sm font-medium border" style="color: var(--text-2); border-color: var(--border)">All apps</a>
         <a href="/projects/new" class="pill px-3 py-1.5 text-sm font-medium border" style="color: var(--text-2); border-color: var(--border)">+ New app</a>
       </div>
       <nav class="flex items-center gap-1.5">
         @foreach (filters as f)
-          <a href="?project={{ projectId }}&status={{ f.key }}"
+          <a href="/dashboard?project={{ projectId }}&status={{ f.key }}"
              class="pill px-3.5 py-1.5 text-sm font-medium border"
              style="{{ f.key === statusFilter ? 'color: #fff; background: var(--accent); border-color: var(--accent)' : 'color: var(--text-2); border-color: var(--border)' }}">{{ f.label }}</a>
         @endforeach

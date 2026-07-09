@@ -1,0 +1,132 @@
+<script server>
+// Projects list. Server-authenticates from the token cookie and shows the
+// user's own apps; each links into its dashboard. New users (or logged-out
+// visitors) are handled by the client guard at the bottom.
+const meta = { title: 'bughq - Your apps', description: 'Error tracking' }
+
+const { db } = await import('@stacksjs/database')
+
+const token = (typeof requestContext !== 'undefined' && requestContext.cookie && requestContext.cookie('token')) || ''
+let user = null
+if (token) {
+  try {
+    const { Auth } = await import('@stacksjs/auth')
+    user = await Auth.getUserFromToken(token)
+  }
+  catch { user = null }
+}
+
+let projects = []
+if (user) {
+  projects = (await db.unsafe(
+    'SELECT id, name, platform, ingest_key, created_at FROM projects WHERE owner_id = $1 ORDER BY created_at DESC NULLS LAST, id',
+    [Number(user.id)],
+  )) ?? []
+}
+
+function fromNow(iso) {
+  if (!iso) return ''
+  const s = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000))
+  if (s < 60) return 'just now'
+  if (s < 3600) return Math.floor(s / 60) + 'm ago'
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago'
+  return Math.floor(s / 86400) + 'd ago'
+}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+
+<style>
+:root {
+  --bg: #fbfbfd; --panel: #ffffff; --border: rgba(15,23,42,0.09);
+  --text: #0b0f19; --text-2: #4b5565; --text-3: #97a1b2; --accent: #e11d48;
+  --sans: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif; --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #090b11; --panel: #10131c; --border: rgba(148,163,184,0.12);
+    --text: #f3f5f9; --text-2: #b3bccb; --text-3: #667085; --accent: #fb7185; }
+}
+:root[data-theme="dark"] { --bg: #090b11; --panel: #10131c; --border: rgba(148,163,184,0.12);
+  --text: #f3f5f9; --text-2: #b3bccb; --text-3: #667085; --accent: #fb7185; }
+:root[data-theme="light"] { --bg: #fbfbfd; --panel: #ffffff; --border: rgba(15,23,42,0.09);
+  --text: #0b0f19; --text-2: #4b5565; --text-3: #97a1b2; --accent: #e11d48; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+.mono { font-family: var(--mono); }
+.wordmark { font-weight: 700; letter-spacing: -0.03em; }
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; }
+.card { transition: border-color 0.15s ease, transform 0.12s ease; }
+.card:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); transform: translateY(-1px); }
+.btn { background: var(--accent); color: #fff; border-radius: 10px; }
+.btn:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
+.btn-ghost { border: 1px solid var(--border); color: var(--text); border-radius: 10px; }
+.btn-ghost:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+</style>
+
+<div class="min-h-[100dvh] px-5 py-10 md:px-10">
+  <div class="max-w-4xl mx-auto">
+
+    <header class="flex items-center justify-between gap-4 mb-9">
+      <div>
+        <h1 class="wordmark text-2xl md:text-[28px] leading-none">Your apps</h1>
+        <p class="text-sm mt-2" style="color: var(--text-3)">Pick an app to track, or create a new one.</p>
+      </div>
+      <div class="flex items-center gap-2.5">
+        <a href="/projects/new" class="btn px-4 py-2 text-sm font-semibold">+ New app</a>
+        <button id="logout" class="btn-ghost px-3.5 py-2 text-sm font-medium" style="background: var(--panel)">Log out</button>
+      </div>
+    </header>
+
+    @if (!user)
+      <div class="text-center py-24 text-sm" style="color: var(--text-3)">Loading…</div>
+    @endif
+
+    @if (user)
+      @forelse (projects as p)
+        <a href="/dashboard?project={{ p.id }}" class="panel card flex items-center gap-4 px-5 py-4 mb-3">
+          <span class="w-9 h-9 rounded-lg shrink-0 flex items-center justify-center font-semibold" style="background: color-mix(in srgb, var(--accent) 14%, var(--panel)); color: var(--accent)">{{ (p.name || '?').charAt(0).toUpperCase() }}</span>
+          <div class="min-w-0 flex-1">
+            <div class="font-semibold truncate">{{ p.name }}</div>
+            <div class="text-xs mt-0.5 flex items-center gap-2" style="color: var(--text-3)">
+              <span class="mono">{{ p.platform || 'app' }}</span>
+              <span aria-hidden="true">·</span>
+              <span class="mono truncate">{{ p.id }}</span>
+            </div>
+          </div>
+          <span class="text-xs shrink-0" style="color: var(--text-3)">{{ fromNow(p.created_at) }}</span>
+        </a>
+      @empty
+        <div class="panel px-5 py-16 text-center">
+          <div class="text-base font-medium mb-1">No apps yet</div>
+          <div class="text-sm mb-5" style="color: var(--text-3)">Create your first app to start capturing errors.</div>
+          <a href="/projects/new" class="btn inline-block px-4 py-2.5 text-sm font-semibold">Create an app</a>
+        </div>
+      @endforelse
+    @endif
+
+    <footer class="mt-12 text-center text-xs" style="color: var(--text-3)">
+      Error tracking on Stacks and Postgres. <span class="mono">bughq.org</span>
+    </footer>
+
+  </div>
+</div>
+
+<!-- Client guard: require a token, mirror it into the cookie, wire logout. -->
+<script>
+(function () {
+  var t = localStorage.getItem('token')
+  if (!t) { window.location.replace('/login'); return }
+  if (!/(^|;)\s*token=/.test(document.cookie)) {
+    document.cookie = 'token=' + t + '; path=/; max-age=2592000; samesite=lax'
+    window.location.reload()
+    return
+  }
+  var btn = document.getElementById('logout')
+  if (btn) btn.addEventListener('click', function () {
+    localStorage.removeItem('token'); localStorage.removeItem('user')
+    document.cookie = 'token=; path=/; max-age=0'
+    window.location.assign('/login')
+  })
+})()
+</script>
