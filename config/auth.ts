@@ -54,7 +54,9 @@ export default {
    * paired refresh token (`refreshTokenExpiry`) carries the long-lived
    * session and is rotated on use, so UX is unaffected.
    */
-  tokenExpiry: env.AUTH_TOKEN_EXPIRY || 60 * 60 * 1000,
+  // 30 days: the dashboard is a long-lived session (token kept in localStorage +
+  // a cookie). A 1h expiry logged users out mid-session.
+  tokenExpiry: env.AUTH_TOKEN_EXPIRY || 30 * 24 * 60 * 60 * 1000,
 
   /**
    * Refresh-token expiry in milliseconds (default: 30 days). This is the

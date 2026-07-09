@@ -66,16 +66,16 @@ const steps = [
             <a href="{{ link.url }}">{{ link.label }}</a>
           @endforeach
         </div>
-        <a class="nav-login" href="/login">Log in</a>
-        <a class="btn primary sm nav-cta" href="/register">Sign up</a>
+        <a class="nav-login" data-auth-login href="/login">Log in</a>
+        <a class="btn primary sm nav-cta" data-auth-signup href="/register">Sign up</a>
         <details class="nav-menu">
           <summary aria-label="Open menu"><span class="burger" aria-hidden="true"></span></summary>
           <div class="nav-menu-panel">
             @foreach (navLinks as link)
               <a href="{{ link.url }}">{{ link.label }}</a>
             @endforeach
-            <a href="/login">Log in</a>
-            <a class="btn primary sm" href="/register">Sign up</a>
+            <a data-auth-login href="/login">Log in</a>
+            <a class="btn primary sm" data-auth-signup href="/register">Sign up</a>
           </div>
         </details>
       </div>
@@ -88,7 +88,7 @@ const steps = [
           <h1 class="hero-title">Error tracking for people who ship.</h1>
           <p class="hero-sub">Capture every production error, fold the duplicates into one issue, and see what is actually breaking. Signal, not a wall of noise.</p>
           <div class="hero-actions">
-            <a class="btn primary" href="/register">Get started</a>
+            <a class="btn primary" data-auth-cta href="/register">Get started</a>
             <a class="btn ghost" href="https://github.com/stacksjs/bughq">View source</a>
           </div>
         </div>
@@ -145,7 +145,7 @@ const steps = [
         <div class="cta-band">
           <h2>Ship with a net under you.</h2>
           <div class="cta-actions">
-            <a class="btn primary" href="/register">Get started</a>
+            <a class="btn primary" data-auth-cta href="/register">Get started</a>
             <a class="btn ghost" href="/use-cases">See use cases</a>
           </div>
         </div>
@@ -162,5 +162,24 @@ const steps = [
         <span>Open source error tracking, built on Stacks and Postgres.</span>
       </div>
     </footer>
+
+    <!-- Reflect auth state: a logged-in visitor (token in localStorage) sees
+         "Dashboard" instead of Log in / Sign up. -->
+    <script>
+      (function () {
+        if (!localStorage.getItem('token')) return
+        document.querySelectorAll('[data-auth-login]').forEach(function (a) {
+          a.textContent = 'Dashboard'
+          a.setAttribute('href', '/dashboard')
+        })
+        document.querySelectorAll('[data-auth-signup]').forEach(function (a) {
+          a.style.display = 'none'
+        })
+        document.querySelectorAll('[data-auth-cta]').forEach(function (a) {
+          a.textContent = 'Go to dashboard'
+          a.setAttribute('href', '/dashboard')
+        })
+      })()
+    </script>
   </body>
 </html>
