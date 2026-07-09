@@ -1,9 +1,4 @@
 <script server>
-const meta = {
-  title: 'bughq - Error tracking for people who ship',
-  description: 'Capture, group, and triage production errors. Built on Stacks and Postgres.',
-}
-
 // The real SDK snippet doubles as the hero visual. Legitimate product content,
 // not a div-based fake screenshot.
 const snippet = `import { bughq } from '@bughq/sdk'
@@ -17,100 +12,153 @@ bughq.init({
 // every uncaught error is captured, fingerprinted,
 // and grouped into a single issue automatically`
 
+const navLinks = [
+  { label: 'Features', url: '#features' },
+  { label: 'Use cases', url: '/use-cases' },
+  { label: 'Pricing', url: '/pricing' },
+  { label: 'Docs', url: '/docs' },
+  { label: 'GitHub', url: 'https://github.com/stacksjs/bughq' },
+]
+
+const featureCells = [
+  { slug: 'capture', cls: 'cell', title: 'Automatic capture', body: 'One init call captures every uncaught error with its stack, release, and environment.' },
+  { slug: 'grouping', cls: 'cell tint', title: 'Fingerprint grouping', body: 'Identical errors fold into one issue with a live count and an affected-user tally.' },
+  { slug: 'releases', cls: 'cell', title: 'Releases and environments', body: 'Tag every event with a release and environment so a regression names its own deploy.' },
+  { slug: 'stack-traces', cls: 'cell', title: 'Readable stack traces', body: 'Upload a source map and every frame resolves back to your original file and line.' },
+  { slug: 'alerts', cls: 'cell tint', title: 'Alerts and triage', body: 'Get told when an issue is new or spiking, and stay quiet for the known and handled.' },
+  { slug: 'self-host', cls: 'cell', title: 'Self-hosting', body: 'Open source, on your own Postgres. Sensitive stack data never leaves your servers.' },
+]
+
 const steps = [
-  { num: '01', verb: 'Install', body: 'Drop the SDK into your app. One init call wires up global capture.' },
-  { num: '02', verb: 'Capture', body: 'Uncaught errors, stack traces, release and environment are collected on throw.' },
-  { num: '03', verb: 'Triage', body: 'Identical errors fold into one issue with a live count and affected-user tally.' },
+  { num: '01', verb: 'Install', body: 'Drop the SDK into your app. One init call wires up global capture across every runtime.' },
+  { num: '02', verb: 'Capture', body: 'Uncaught errors, stack traces, release, and environment are collected the moment they throw.' },
+  { num: '03', verb: 'Triage', body: 'Identical errors fold into one issue with a live count and affected-user tally, sorted by impact.' },
 ]
 </script>
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
-
-<style>
-:root {
-  --bg: #fbfbfd; --panel: #ffffff; --border: rgba(15,23,42,0.09);
-  --text: #0b0f19; --text-2: #4b5565; --text-3: #97a1b2; --accent: #e11d48; --code-bg: #0b0f19;
-  --sans: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
-  --mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-@media (prefers-color-scheme: dark) {
-  :root { --bg: #090b11; --panel: #10131c; --border: rgba(148,163,184,0.12);
-    --text: #f3f5f9; --text-2: #b3bccb; --text-3: #667085; --accent: #fb7185; --code-bg: #05070c; }
-}
-:root[data-theme="dark"] { --bg: #090b11; --panel: #10131c; --border: rgba(148,163,184,0.12);
-  --text: #f3f5f9; --text-2: #b3bccb; --text-3: #667085; --accent: #fb7185; --code-bg: #05070c; }
-:root[data-theme="light"] { --bg: #fbfbfd; --panel: #ffffff; --border: rgba(15,23,42,0.09);
-  --text: #0b0f19; --text-2: #4b5565; --text-3: #97a1b2; --accent: #e11d48; --code-bg: #0b0f19; }
-
-body { background: var(--bg); color: var(--text); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
-.mono { font-family: var(--mono); }
-.wordmark { font-weight: 700; letter-spacing: -0.03em; }
-.headline { font-weight: 700; letter-spacing: -0.035em; }
-.btn { border-radius: 10px; transition: transform 0.12s ease, background-color 0.15s ease, border-color 0.15s ease; }
-.btn:active { transform: translateY(1px); }
-.btn-primary { background: var(--accent); color: #fff; }
-.btn-primary:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
-.btn-ghost { border: 1px solid var(--border); color: var(--text); }
-.btn-ghost:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
-.code { background: var(--code-bg); border: 1px solid var(--border); border-radius: 14px; }
-.reveal { opacity: 0; transform: translateY(12px); animation: reveal 0.6s cubic-bezier(0.16,1,0.3,1) forwards; }
-@keyframes reveal { to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .reveal { animation: none; opacity: 1; transform: none; } }
-</style>
-
-<div class="min-h-[100dvh]" style="background: var(--bg)">
-
-  <header class="max-w-6xl mx-auto flex items-center justify-between px-5 md:px-8 h-16">
-    <span class="wordmark text-xl">bughq</span>
-    <a href="/dashboard" class="btn btn-ghost px-4 py-2 text-sm font-medium">Open dashboard</a>
-  </header>
-
-  <main class="max-w-6xl mx-auto px-5 md:px-8">
-
-    <!-- Asymmetric split hero: message left, real code right -->
-    <section class="grid lg:grid-cols-[1.05fr_1fr] gap-10 lg:gap-14 items-center pt-16 md:pt-24 pb-20">
-      <div class="reveal">
-        <h1 class="headline text-4xl md:text-5xl lg:text-[3.4rem] leading-[1.05]">
-          Error tracking for people who ship.
-        </h1>
-        <p class="text-base md:text-lg mt-5 max-w-[54ch]" style="color: var(--text-2)">
-          Capture every production error, fold duplicates into one issue, and see what is actually breaking. No noise.
-        </p>
-        <div class="flex flex-wrap items-center gap-3 mt-8">
-          <a href="/dashboard" class="btn btn-primary px-5 py-2.5 text-sm font-semibold">Open dashboard</a>
-          <a href="https://github.com/stacksjs/bughq" class="btn btn-ghost px-5 py-2.5 text-sm font-semibold">View source</a>
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="/marketing.css">
+    <style>
+      .hero-code { border: 1px solid var(--border); border-radius: var(--r); background: var(--code-bg); overflow: hidden; }
+      .hero-code .code-bar { display: flex; align-items: center; gap: 0.55rem; padding: 0.8rem 1rem; border-bottom: 1px solid rgba(148,163,184,0.14); }
+      .hero-code .dot { width: 9px; height: 9px; border-radius: 999px; background: var(--accent); }
+      .open-band { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.25rem; border: 1px solid var(--border); border-radius: var(--r); padding: 1.75rem 2rem; background: var(--surface); }
+      .open-band p { margin: 0; max-width: 52ch; color: var(--text-2); font-size: 1rem; line-height: 1.55; }
+      .open-band strong { color: var(--text); font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <nav class="nav">
+      <div class="nav-inner shell">
+        <a class="brand" href="/" aria-label="bughq home">
+          <span class="brand-mark">b</span>
+          <span class="brand-name">bughq</span>
+        </a>
+        <div class="nav-links" aria-label="Primary navigation">
+          @foreach (navLinks as link)
+            <a href="{{ link.url }}">{{ link.label }}</a>
+          @endforeach
         </div>
-      </div>
-
-      <div class="code p-5 md:p-6 reveal" style="animation-delay: 0.08s">
-        <div class="flex items-center gap-2 mb-4">
-          <span class="w-2.5 h-2.5 rounded-full" style="background: var(--accent)"></span>
-          <span class="mono text-xs" style="color: #97a1b2">app/error-boundary.ts</span>
-        </div>
-        <pre class="mono text-[12.5px] leading-relaxed overflow-x-auto" style="color: #d6deeb"><code>{{ snippet }}</code></pre>
-      </div>
-    </section>
-
-    <!-- How it works: real verbs, numbered, not generic 'Stage 1/2/3' -->
-    <section class="border-t py-16 md:py-20" style="border-color: var(--border)">
-      <div class="grid md:grid-cols-3 gap-px" style="background: var(--border)">
-        @foreach (steps as step)
-          <div class="px-6 py-8" style="background: var(--bg)">
-            <div class="mono text-sm mb-4" style="color: var(--accent)">{{ step.num }}</div>
-            <h3 class="wordmark text-lg mb-2">{{ step.verb }}</h3>
-            <p class="text-sm leading-relaxed" style="color: var(--text-2)">{{ step.body }}</p>
+        <a class="btn primary sm nav-cta" href="/register">Get started</a>
+        <details class="nav-menu">
+          <summary aria-label="Open menu"><span class="burger" aria-hidden="true"></span></summary>
+          <div class="nav-menu-panel">
+            @foreach (navLinks as link)
+              <a href="{{ link.url }}">{{ link.label }}</a>
+            @endforeach
+            <a class="btn primary sm" href="/register">Get started</a>
           </div>
-        @endforeach
+        </details>
       </div>
-    </section>
+    </nav>
 
-  </main>
+    <main class="shell">
 
-  <footer class="max-w-6xl mx-auto px-5 md:px-8 py-10 border-t flex flex-wrap items-center justify-between gap-3 text-sm" style="border-color: var(--border); color: var(--text-3)">
-    <span class="mono">bughq.org</span>
-    <span>Built on Stacks and Postgres.</span>
-  </footer>
+      <section class="hero">
+        <div class="reveal">
+          <h1 class="hero-title">Error tracking for people who ship.</h1>
+          <p class="hero-sub">Capture every production error, fold the duplicates into one issue, and see what is actually breaking. Signal, not a wall of noise.</p>
+          <div class="hero-actions">
+            <a class="btn primary" href="/register">Get started</a>
+            <a class="btn ghost" href="https://github.com/stacksjs/bughq">View source</a>
+          </div>
+        </div>
 
-</div>
+        <div class="hero-code reveal" style="animation-delay: 0.08s">
+          <div class="code-bar">
+            <span class="dot" aria-hidden="true"></span>
+            <span class="chart-cap">app/error-boundary.ts</span>
+          </div>
+          <pre class="code-body"><code>{{ snippet }}</code></pre>
+        </div>
+      </section>
+
+      <section id="features" class="section reveal" aria-labelledby="features-heading">
+        <div class="section-head">
+          <h2 id="features-heading" class="section-title">From throw to triaged, without the noise.</h2>
+        </div>
+        <div class="bento">
+          @foreach (featureCells as cell)
+            <a class="{{ cell.cls }}" href="/features/{{ cell.slug }}">
+              <h3>{{ cell.title }}</h3>
+              <p>{{ cell.body }}</p>
+              <span class="cell-more">View feature</span>
+            </a>
+          @endforeach
+        </div>
+      </section>
+
+      <section class="section reveal" aria-labelledby="how-heading">
+        <div class="section-head">
+          <h2 id="how-heading" class="section-title">Live in three steps.</h2>
+        </div>
+        <div class="flow">
+          @foreach (steps as step)
+            <div class="flow-step">
+              <span class="flow-num">{{ step.num }}</span>
+              <div>
+                <h3>{{ step.verb }}</h3>
+                <p>{{ step.body }}</p>
+              </div>
+            </div>
+          @endforeach
+        </div>
+      </section>
+
+      <section class="section reveal" aria-label="Open source and self-hosting">
+        <div class="open-band">
+          <p><strong>Open source, and yours to run.</strong> Host bughq on your own Postgres so sensitive stack data never leaves your infrastructure, or start on the hosted tier in a minute.</p>
+          <a class="btn ghost" href="/features/self-host">Read about self-hosting</a>
+        </div>
+      </section>
+
+      <section class="section reveal" aria-label="Get started">
+        <div class="cta-band">
+          <h2>Ship with a net under you.</h2>
+          <div class="cta-actions">
+            <a class="btn primary" href="/register">Get started</a>
+            <a class="btn ghost" href="/use-cases">See use cases</a>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <footer class="footer shell">
+      <div class="footer-bottom">
+        <a class="brand" href="/" aria-label="bughq home">
+          <span class="brand-mark">b</span>
+          <span class="brand-name">bughq</span>
+        </a>
+        <span>Open source error tracking, built on Stacks and Postgres.</span>
+      </div>
+    </footer>
+  </body>
+</html>

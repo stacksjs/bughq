@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="/marketing.css">
+  </head>
+  <body>
+    <nav class="nav">
+      <div class="nav-inner shell">
+        <a class="brand" href="/" aria-label="bughq home">
+          <span class="brand-mark">b</span>
+          <span class="brand-name">bughq</span>
+        </a>
+        <div class="nav-links" aria-label="Primary navigation">
+            <a href="/#features">Features</a>
+            <a href="/use-cases">Use cases</a>
+            <a href="/pricing">Pricing</a>
+            <a href="/docs">Docs</a>
+            <a href="https://github.com/stacksjs/bughq">GitHub</a>
+        </div>
+        <a class="btn primary sm nav-cta" href="/register">Get started</a>
+        <details class="nav-menu">
+          <summary aria-label="Open menu"><span class="burger" aria-hidden="true"></span></summary>
+          <div class="nav-menu-panel">
+            <a href="/#features">Features</a>
+            <a href="/use-cases">Use cases</a>
+            <a href="/pricing">Pricing</a>
+            <a href="/docs">Docs</a>
+            <a href="https://github.com/stacksjs/bughq">GitHub</a>
+            <a class="btn primary sm" href="/register">Get started</a>
+          </div>
+        </details>
+      </div>
+    </nav>
+
+    <main>
+      <nav class="subnav shell" aria-label="Breadcrumb">
+        <a href="/">Home</a><span class="sep">/</span>
+        <a href="/#features">Features</a><span class="sep">/</span>
+        <span>Releases and environments</span>
+      </nav>
+
+      <section class="feat-hero shell">
+        <span class="kicker">Releases</span>
+        <h1>Know which deploy broke it.</h1>
+        <p>Tag every event with a release and an environment. A new issue that starts at 2.14.0 is obvious, and staging noise never gets mistaken for a production fire.</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="/register">Get started</a>
+          <a class="btn ghost" href="/docs">Read the docs</a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Releases and environments preview">
+        <div class="code" style="max-width: 700px">
+          <div class="code-bar"><span class="chart-cap">Tag events with a release and environment</span></div>
+          <pre class="code-body"><code>bughq.init({
+  dsn: 'https://ingest.bughq.org/p_9f2c',
+  release: 'checkout@2.14.0',   // git sha or version
+  environment: 'production',    // vs staging, preview
+})
+
+// an issue records the release it first appeared in,
+// so a regression points straight at the deploy</code></pre>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="how-heading">
+        <div class="section-head">
+          <h2 id="how-heading" class="section-title">How it works</h2>
+        </div>
+        <div class="flow">
+          <div class="flow-step">
+            <span class="flow-num">01</span>
+            <div>
+              <h3>Stamp every event</h3>
+              <p>The release and environment are attached to each error automatically once you set them at init.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">02</span>
+            <div>
+              <h3>First-seen points at a deploy</h3>
+              <p>Each issue records the release it first appeared in, so a regression names its own cause.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">03</span>
+            <div>
+              <h3>Environments stay separate</h3>
+              <p>Production, staging, and preview report side by side without drowning each other out.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="What you get">
+        <div class="metrics">
+          <div class="metric">
+            <div class="m-value">Per release</div>
+            <div class="m-label">Every issue knows the version it was born in.</div>
+          </div>
+          <div class="metric">
+            <div class="m-value">Per environment</div>
+            <div class="m-label">Production fires never hide behind staging noise.</div>
+          </div>
+          <div class="metric">
+            <div class="m-value">Regression aware</div>
+            <div class="m-label">A resurfaced issue after a deploy is easy to catch.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="related-heading">
+        <div class="section-head">
+          <h2 id="related-heading" class="section-title">Pairs well with</h2>
+        </div>
+        <div class="related">
+          <a href="/features/capture">
+            <div class="r-name">Automatic capture</div>
+            <div class="r-desc">The events these tags are attached to.</div>
+          </a>
+          <a href="/features/grouping">
+            <div class="r-name">Fingerprint grouping</div>
+            <div class="r-desc">How events become the issues you track.</div>
+          </a>
+          <a href="/features/alerts">
+            <div class="r-name">Alerts and triage</div>
+            <div class="r-desc">Alert the moment a release regresses.</div>
+          </a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Get started">
+        <div class="cta-band">
+          <h2>Ship with a net under you.</h2>
+          <div class="cta-actions">
+            <a class="btn primary" href="/register">Get started</a>
+            <a class="btn ghost" href="/docs">Read the docs</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer shell">
+      <div class="footer-bottom" style="border-top: none">
+        <a class="brand" href="/" aria-label="bughq home">
+          <span class="brand-mark">b</span>
+          <span class="brand-name">bughq</span>
+        </a>
+        <span>Open source error tracking, built on Stacks and Postgres.</span>
+      </div>
+    </footer>
+  </body>
+</html>

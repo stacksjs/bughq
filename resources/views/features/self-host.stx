@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="/marketing.css">
+  </head>
+  <body>
+    <nav class="nav">
+      <div class="nav-inner shell">
+        <a class="brand" href="/" aria-label="bughq home">
+          <span class="brand-mark">b</span>
+          <span class="brand-name">bughq</span>
+        </a>
+        <div class="nav-links" aria-label="Primary navigation">
+            <a href="/#features">Features</a>
+            <a href="/use-cases">Use cases</a>
+            <a href="/pricing">Pricing</a>
+            <a href="/docs">Docs</a>
+            <a href="https://github.com/stacksjs/bughq">GitHub</a>
+        </div>
+        <a class="btn primary sm nav-cta" href="/register">Get started</a>
+        <details class="nav-menu">
+          <summary aria-label="Open menu"><span class="burger" aria-hidden="true"></span></summary>
+          <div class="nav-menu-panel">
+            <a href="/#features">Features</a>
+            <a href="/use-cases">Use cases</a>
+            <a href="/pricing">Pricing</a>
+            <a href="/docs">Docs</a>
+            <a href="https://github.com/stacksjs/bughq">GitHub</a>
+            <a class="btn primary sm" href="/register">Get started</a>
+          </div>
+        </details>
+      </div>
+    </nav>
+
+    <main>
+      <nav class="subnav shell" aria-label="Breadcrumb">
+        <a href="/">Home</a><span class="sep">/</span>
+        <a href="/#features">Features</a><span class="sep">/</span>
+        <span>Self-hosting</span>
+      </nav>
+
+      <section class="feat-hero shell">
+        <span class="kicker">Self-host</span>
+        <h1>Run it on your own infrastructure.</h1>
+        <p>bughq is open source and runs on your own Postgres. Your error data, including anything sensitive that lands in a stack trace, never leaves servers you control.</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="/register">Get started</a>
+          <a class="btn ghost" href="/docs">Read the docs</a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Self-hosting preview">
+        <div class="code" style="max-width: 700px">
+          <div class="code-bar"><span class="chart-cap">Run bughq on your own box</span></div>
+          <pre class="code-body"><code>git clone https://github.com/stacksjs/bughq
+cd bughq
+
+# point it at your Postgres and go
+export DATABASE_URL=postgres://user@db/bughq
+buddy migrate
+buddy serve   # your instance, your data</code></pre>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="how-heading">
+        <div class="section-head">
+          <h2 id="how-heading" class="section-title">How it works</h2>
+        </div>
+        <div class="flow">
+          <div class="flow-step">
+            <span class="flow-num">01</span>
+            <div>
+              <h3>Clone the source</h3>
+              <p>The whole application is open source, so there is no black box to trust.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">02</span>
+            <div>
+              <h3>Point it at your Postgres</h3>
+              <p>Set one connection string, run the migrations, and the schema is ready.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">03</span>
+            <div>
+              <h3>Serve it where you like</h3>
+              <p>Deploy on your own servers, so raw error data stays inside your boundary.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="What you get">
+        <div class="metrics">
+          <div class="metric">
+            <div class="m-value">Open source</div>
+            <div class="m-label">Read, audit, and change the code that handles your errors.</div>
+          </div>
+          <div class="metric">
+            <div class="m-value">Your database</div>
+            <div class="m-label">Events live in a Postgres you own and back up.</div>
+          </div>
+          <div class="metric">
+            <div class="m-value">Your servers</div>
+            <div class="m-label">Sensitive stack data never leaves your infrastructure.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="related-heading">
+        <div class="section-head">
+          <h2 id="related-heading" class="section-title">Pairs well with</h2>
+        </div>
+        <div class="related">
+          <a href="/features/capture">
+            <div class="r-name">Automatic capture</div>
+            <div class="r-desc">The SDK points at your own ingest URL.</div>
+          </a>
+          <a href="/features/grouping">
+            <div class="r-name">Fingerprint grouping</div>
+            <div class="r-desc">Same triage, on your own instance.</div>
+          </a>
+          <a href="/features/alerts">
+            <div class="r-name">Alerts and triage</div>
+            <div class="r-desc">Wire alerts to your own channels.</div>
+          </a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Get started">
+        <div class="cta-band">
+          <h2>Ship with a net under you.</h2>
+          <div class="cta-actions">
+            <a class="btn primary" href="/register">Get started</a>
+            <a class="btn ghost" href="/docs">Read the docs</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer shell">
+      <div class="footer-bottom" style="border-top: none">
+        <a class="brand" href="/" aria-label="bughq home">
+          <span class="brand-mark">b</span>
+          <span class="brand-name">bughq</span>
+        </a>
+        <span>Open source error tracking, built on Stacks and Postgres.</span>
+      </div>
+    </footer>
+  </body>
+</html>

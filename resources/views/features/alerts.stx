@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="/marketing.css">
+  </head>
+  <body>
+    <nav class="nav">
+      <div class="nav-inner shell">
+        <a class="brand" href="/" aria-label="bughq home">
+          <span class="brand-mark">b</span>
+          <span class="brand-name">bughq</span>
+        </a>
+        <div class="nav-links" aria-label="Primary navigation">
+            <a href="/#features">Features</a>
+            <a href="/use-cases">Use cases</a>
+            <a href="/pricing">Pricing</a>
+            <a href="/docs">Docs</a>
+            <a href="https://github.com/stacksjs/bughq">GitHub</a>
+        </div>
+        <a class="btn primary sm nav-cta" href="/register">Get started</a>
+        <details class="nav-menu">
+          <summary aria-label="Open menu"><span class="burger" aria-hidden="true"></span></summary>
+          <div class="nav-menu-panel">
+            <a href="/#features">Features</a>
+            <a href="/use-cases">Use cases</a>
+            <a href="/pricing">Pricing</a>
+            <a href="/docs">Docs</a>
+            <a href="https://github.com/stacksjs/bughq">GitHub</a>
+            <a class="btn primary sm" href="/register">Get started</a>
+          </div>
+        </details>
+      </div>
+    </nav>
+
+    <main>
+      <nav class="subnav shell" aria-label="Breadcrumb">
+        <a href="/">Home</a><span class="sep">/</span>
+        <a href="/#features">Features</a><span class="sep">/</span>
+        <span>Alerts and triage</span>
+      </nav>
+
+      <section class="feat-hero shell">
+        <span class="kicker">Alerts</span>
+        <h1>Get told when it matters, not for everything.</h1>
+        <p>A brand new issue or a sudden spike reaches you where you already work. A known, quiet error stays quiet. You tune the threshold instead of muting the whole feed.</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="/register">Get started</a>
+          <a class="btn ghost" href="/docs">Read the docs</a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Alerts and triage preview">
+        <div class="panel" style="max-width: 640px">
+          <div class="panel-head"><span class="chart-cap">This week, by alert reason</span><span class="panel-tag">Sample data</span></div>
+          <div class="bar-row">
+            <span class="bar-label">New issue</span>
+            <span class="bar-track"><span class="bar-fill" style="width: 22%"></span></span>
+            <span class="bar-value">9</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">Spike over baseline</span>
+            <span class="bar-track"><span class="bar-fill" style="width: 12%"></span></span>
+            <span class="bar-value">5</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">Regression after deploy</span>
+            <span class="bar-track"><span class="bar-fill" style="width: 7%"></span></span>
+            <span class="bar-value">3</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">Muted and known</span>
+            <span class="bar-track"><span class="bar-fill" style="width: 100%"></span></span>
+            <span class="bar-value">41</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="how-heading">
+        <div class="section-head">
+          <h2 id="how-heading" class="section-title">How it works</h2>
+        </div>
+        <div class="flow">
+          <div class="flow-step">
+            <span class="flow-num">01</span>
+            <div>
+              <h3>Watch for what is new</h3>
+              <p>A first-seen issue triggers an alert, because a new failure mode is the thing worth interrupting for.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">02</span>
+            <div>
+              <h3>Catch sudden spikes</h3>
+              <p>When an existing issue jumps well above its baseline, that counts as news even if it is not new.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">03</span>
+            <div>
+              <h3>Reach your channel</h3>
+              <p>Alerts land where your team already looks, so nobody has to camp on a dashboard.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="What you get">
+        <div class="metrics">
+          <div class="metric">
+            <div class="m-value">New-issue alerts</div>
+            <div class="m-label">Interrupt for a genuinely new failure, not a familiar one.</div>
+          </div>
+          <div class="metric">
+            <div class="m-value">Spike detection</div>
+            <div class="m-label">A jump above baseline is treated as news.</div>
+          </div>
+          <div class="metric">
+            <div class="m-value">Your channel</div>
+            <div class="m-label">Delivered where the team already works.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="related-heading">
+        <div class="section-head">
+          <h2 id="related-heading" class="section-title">Pairs well with</h2>
+        </div>
+        <div class="related">
+          <a href="/features/grouping">
+            <div class="r-name">Fingerprint grouping</div>
+            <div class="r-desc">Alerts fire on issues, not raw noise.</div>
+          </a>
+          <a href="/features/releases">
+            <div class="r-name">Releases and environments</div>
+            <div class="r-desc">Alert when a specific deploy regresses.</div>
+          </a>
+          <a href="/features/capture">
+            <div class="r-name">Automatic capture</div>
+            <div class="r-desc">The stream alerts are drawn from.</div>
+          </a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Get started">
+        <div class="cta-band">
+          <h2>Ship with a net under you.</h2>
+          <div class="cta-actions">
+            <a class="btn primary" href="/register">Get started</a>
+            <a class="btn ghost" href="/docs">Read the docs</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer shell">
+      <div class="footer-bottom" style="border-top: none">
+        <a class="brand" href="/" aria-label="bughq home">
+          <span class="brand-mark">b</span>
+          <span class="brand-name">bughq</span>
+        </a>
+        <span>Open source error tracking, built on Stacks and Postgres.</span>
+      </div>
+    </footer>
+  </body>
+</html>
