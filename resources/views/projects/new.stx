@@ -1,0 +1,166 @@
+<script client>
+// Create-app screen. New users land here after signup. Creates a project via
+// the authenticated API (bearer from localStorage), then shows the ingest
+// snippet with the project's key before sending you into its dashboard.
+const error = state('')
+const loading = state(false)
+const created = state(null)
+
+;(function guard() {
+  const t = localStorage.getItem('token')
+  if (!t) {
+    window.location.replace('/login')
+    return
+  }
+  // Mirror the token into a cookie so the server-rendered dashboard can
+  // authenticate this user on plain navigation.
+  if (!/(^|;)\s*token=/.test(document.cookie))
+    document.cookie = `token=${t}; path=/; max-age=2592000; samesite=lax`
+})()
+
+async function handleSubmit(e) {
+  e.preventDefault()
+  if (loading())
+    return
+  const form = e.target
+  const name = form.elements.name.value.trim()
+  if (!name) {
+    error.set('Give your app a name.')
+    return
+  }
+  loading.set(true)
+  error.set('')
+  try {
+    const res = await fetch('/api/projects', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+      body: JSON.stringify({ name, platform: form.elements.platform.value }),
+    })
+    const data = await res.json().catch(() => ({}))
+    if (res.status === 401) {
+      window.location.replace('/login')
+      return
+    }
+    if (!res.ok) {
+      error.set(data.error || 'Could not create the app.')
+      return
+    }
+    created.set(data.project)
+  }
+  catch {
+    error.set('Something went wrong. Please try again.')
+  }
+  finally {
+    loading.set(false)
+  }
+}
+
+function snippet(p) {
+  if (!p)
+    return ''
+  return `<script src="${window.location.origin}/sdk.js"\n        data-project="${p.id}"\n        data-key="${p.ingest_key}"><\/script>`
+}
+
+function copySnippet() {
+  navigator.clipboard.writeText(snippet(created())).catch(() => {})
+}
+
+function goToDashboard() {
+  window.location.assign(`/dashboard?project=${created().id}`)
+}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+:root {
+  --bg: #fbfbfd; --panel: #ffffff; --border: rgba(15,23,42,0.09);
+  --text: #0b0f19; --text-2: #4b5565; --text-3: #97a1b2; --accent: #e11d48;
+  --sans: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif; --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #090b11; --panel: #10131c; --border: rgba(148,163,184,0.12);
+    --text: #f3f5f9; --text-2: #b3bccb; --text-3: #667085; --accent: #fb7185; }
+}
+:root[data-theme="dark"] { --bg: #090b11; --panel: #10131c; --border: rgba(148,163,184,0.12);
+  --text: #f3f5f9; --text-2: #b3bccb; --text-3: #667085; --accent: #fb7185; }
+:root[data-theme="light"] { --bg: #fbfbfd; --panel: #ffffff; --border: rgba(15,23,42,0.09);
+  --text: #0b0f19; --text-2: #4b5565; --text-3: #97a1b2; --accent: #e11d48; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+.wordmark { font-weight: 700; letter-spacing: -0.03em; }
+.field { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; color: var(--text); }
+.field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent); }
+.btn { background: var(--accent); color: #fff; border-radius: 10px; transition: transform 0.12s ease, opacity 0.15s ease; }
+.btn:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: 0.6; cursor: default; }
+.btn-ghost { border: 1px solid var(--border); color: var(--text); background: var(--panel); border-radius: 10px; }
+.btn-ghost:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.err { background: color-mix(in srgb, #ef4444 12%, transparent); color: #ef4444; }
+.snippet { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; font-family: var(--mono); font-size: 12.5px; line-height: 1.6; white-space: pre; overflow-x: auto; color: var(--text-2); }
+.dot { width: 8px; height: 8px; border-radius: 999px; background: #22c55e; box-shadow: 0 0 0 4px color-mix(in srgb, #22c55e 18%, transparent); }
+</style>
+
+<div class="min-h-[100dvh] flex items-center justify-center px-5 py-12">
+  <div class="w-full max-w-md">
+    <div class="text-center mb-8">
+      <a href="/" class="wordmark text-2xl">bughq</a>
+    </div>
+
+    @if (created())
+      <div class="text-center mb-6">
+        <div class="inline-flex items-center gap-2 mb-3">
+          <span class="dot"></span>
+          <span class="text-sm font-semibold">{{ created().name }} is ready</span>
+        </div>
+        <p class="text-sm" style="color: var(--text-3)">Drop this snippet into your app to start capturing errors.</p>
+      </div>
+
+      <div class="snippet px-4 py-3.5 mb-3">{{ snippet(created()) }}</div>
+
+      <div class="flex items-center gap-2.5 mb-6">
+        <button @click="copySnippet" class="btn-ghost flex-1 py-2.5 text-sm font-medium">Copy snippet</button>
+        <button @click="goToDashboard" class="btn flex-1 py-2.5 text-sm font-semibold">Go to dashboard</button>
+      </div>
+
+      <p class="text-center text-xs" style="color: var(--text-3)">
+        Project id <span class="font-mono">{{ created().id }}</span> · keep your ingest key private to your app.
+      </p>
+    @else
+      <div class="text-center mb-8">
+        <h1 class="text-xl font-semibold tracking-tight">Create your first app</h1>
+        <p class="text-sm mt-2" style="color: var(--text-3)">Each app gets its own error stream and ingest key.</p>
+      </div>
+
+      <form @submit="handleSubmit" class="space-y-4">
+        @if (error())
+          <div class="err text-sm rounded-lg px-3 py-2">{{ error() }}</div>
+        @endif
+
+        <div>
+          <label class="block text-xs font-medium mb-1.5" style="color: var(--text-2)">App name</label>
+          <input name="name" type="text" required autofocus placeholder="Acme Web" class="field w-full px-3.5 py-2.5 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium mb-1.5" style="color: var(--text-2)">Platform</label>
+          <select name="platform" class="field w-full px-3.5 py-2.5 text-sm">
+            <option value="javascript">JavaScript / Browser</option>
+            <option value="node">Node.js</option>
+            <option value="react">React</option>
+            <option value="vue">Vue</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+
+        <button type="submit" :disabled="loading()" class="btn w-full py-2.5 text-sm font-semibold">
+          {{ loading() ? 'Creating…' : 'Create app' }}
+        </button>
+      </form>
+    @endif
+  </div>
+</div>
