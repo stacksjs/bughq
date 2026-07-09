@@ -266,3 +266,8 @@ a.cell:hover .cell-more { color: var(--accent); gap: 0.55rem; }
   .flow-step { grid-template-columns: 1fr; gap: 0.4rem; }
   .bar-row { grid-template-columns: 120px 1fr 44px; }
 }
+
+/* login link beside the Sign up nav button */
+.nav-login { color: var(--text-2); font-size: 0.9rem; transition: color 0.16s ease; }
+.nav-login:hover { color: var(--text); }
+.nav-cta { margin-left: 0.95rem; }

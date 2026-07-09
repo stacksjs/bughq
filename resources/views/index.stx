@@ -66,14 +66,16 @@ const steps = [
             <a href="{{ link.url }}">{{ link.label }}</a>
           @endforeach
         </div>
-        <a class="btn primary sm nav-cta" href="/register">Get started</a>
+        <a class="nav-login" href="/login">Log in</a>
+        <a class="btn primary sm nav-cta" href="/register">Sign up</a>
         <details class="nav-menu">
           <summary aria-label="Open menu"><span class="burger" aria-hidden="true"></span></summary>
           <div class="nav-menu-panel">
             @foreach (navLinks as link)
               <a href="{{ link.url }}">{{ link.label }}</a>
             @endforeach
-            <a class="btn primary sm" href="/register">Get started</a>
+            <a href="/login">Log in</a>
+            <a class="btn primary sm" href="/register">Sign up</a>
           </div>
         </details>
       </div>
