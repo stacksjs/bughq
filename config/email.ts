@@ -10,11 +10,11 @@ import { env } from '@stacksjs/env'
  */
 export default {
   from: {
-    name: env.MAIL_FROM_NAME || 'Stacks',
-    address: env.MAIL_FROM_ADDRESS || `hello@${env.MAIL_DOMAIN || 'stacksjs.com'}`,
+    name: env.MAIL_FROM_NAME || 'BugHQ',
+    address: env.MAIL_FROM_ADDRESS || `hello@${env.MAIL_DOMAIN || 'bughq.org'}`,
   },
 
-  domain: env.MAIL_DOMAIN || 'stacksjs.com',
+  domain: env.MAIL_DOMAIN || 'bughq.org',
 
   /**
    * Mailbox users for IMAP/SMTP access.
@@ -28,8 +28,7 @@ export default {
    */
   mailboxes: [
     'chris',
-    'blake',
-    'glenn',
+    'hello',
   ],
 
   url: env.APP_URL || 'https://stacksjs.com',
