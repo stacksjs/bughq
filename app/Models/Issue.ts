@@ -10,9 +10,11 @@ export default defineModel({
   table: 'issues',
   primaryKey: 'id',
 
+  // No `useApi`: the auto-generated CRUD is not owner-scoped and would expose
+  // every tenant's issues at /api/issues. Issue access is owner-scoped through
+  // the routes in routes/errors.ts.
   traits: {
     useTimestamps: true,
-    useApi: { uri: 'issues', routes: ['index', 'show', 'update'] },
   },
 
   belongsTo: ['Project'],

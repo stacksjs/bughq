@@ -7,6 +7,7 @@
  * Storage is Postgres, queried through bun-query-builder's `db`.
  */
 
+import { Auth } from '@stacksjs/auth'
 import { db } from '@stacksjs/database'
 import { response, route } from '@stacksjs/router'
 import { categorize, culprit, fingerprint, issueTitle, randomId } from '../app/Errors/fingerprint'
@@ -21,6 +22,47 @@ const CORS = {
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', ...CORS } })
+}
+
+// Resolve the current user from a bearer token (API calls) or the `token`
+// cookie (the resolve form posts with cookies, no bearer). Used to owner-scope
+// the issue endpoints so no tenant can read/mutate another tenant's issues.
+async function userFromRequest(request: any): Promise<any | null> {
+  const authHeader = request.headers?.get?.('authorization') ?? ''
+  let token = request.bearerToken?.() ?? authHeader.replace(/^Bearer\s+/i, '')
+  if (!token) {
+    const cookie = request.headers?.get?.('cookie') ?? ''
+    const m = cookie.match(/(?:^|;)\s*token=([^;]+)/)
+    if (m)
+      token = decodeURIComponent(m[1])
+  }
+  if (!token)
+    return null
+  try {
+    return await Auth.getUserFromToken(token)
+  }
+  catch {
+    return null
+  }
+}
+
+/** True when `user` owns the project the issue belongs to. */
+async function ownsIssue(user: any, issueId: string): Promise<boolean> {
+  const row = (await db.unsafe(
+    `SELECT 1 FROM issues i JOIN projects p ON p.id = i.project_id
+     WHERE i.id = $1 AND p.owner_id = $2 LIMIT 1`,
+    [issueId, Number(user.id)],
+  ))?.[0]
+  return !!row
+}
+
+/** True when `user` owns the project. */
+async function ownsProject(user: any, projectId: string): Promise<boolean> {
+  const row = (await db.unsafe(
+    'SELECT 1 FROM projects WHERE id = $1 AND owner_id = $2 LIMIT 1',
+    [projectId, Number(user.id)],
+  ))?.[0]
+  return !!row
 }
 
 // ---------------------------------------------------------------------------
@@ -117,6 +159,11 @@ route.post('/errors', async (request: any) => {
 
 route.get('/api/projects/{projectId}/issues', async (request: any) => {
   const projectId = request.params.projectId
+  const user = await userFromRequest(request)
+  if (!user)
+    return json({ error: 'unauthorized' }, 401)
+  if (!(await ownsProject(user, projectId)))
+    return json({ error: 'not found' }, 404)
   const status = request.query?.status
   const cols = 'id, title, culprit, error_type, level, status, count, first_seen, last_seen'
   const issues = status
@@ -133,6 +180,11 @@ route.get('/api/projects/{projectId}/issues', async (request: any) => {
 
 route.get('/api/issues/{issueId}', async (request: any) => {
   const issueId = request.params.issueId
+  const user = await userFromRequest(request)
+  if (!user)
+    return json({ error: 'unauthorized' }, 401)
+  if (!(await ownsIssue(user, issueId)))
+    return json({ error: 'not found' }, 404)
   const issue = (await db.unsafe('SELECT * FROM issues WHERE id = $1 LIMIT 1', [issueId]))?.[0]
   if (!issue)
     return json({ error: 'not found' }, 404)
@@ -145,10 +197,15 @@ route.get('/api/issues/{issueId}', async (request: any) => {
 
 route.post('/api/issues/{issueId}/resolve', async (request: any) => {
   const issueId = request.params.issueId
+  const user = await userFromRequest(request)
+  if (!user)
+    return json({ error: 'unauthorized' }, 401)
+  if (!(await ownsIssue(user, issueId)))
+    return json({ error: 'not found' }, 404)
   const status = request.jsonBody?.status ?? 'resolved'
   await db.unsafe('UPDATE issues SET status = $1 WHERE id = $2', [status, issueId])
   return json({ ok: true, status })
-})
+}).skipCsrf()
 
 // Form-friendly status change used by the issue detail page's Resolve/Ignore/
 // Reopen buttons. Plain HTML form POST (no JS) -> 302 back to the issue, so the
@@ -160,6 +217,11 @@ route.post('/issue/{issueId}/status', async (request: any) => {
   const to = request.query?.to ?? request.jsonBody?.to ?? 'resolved'
   if (!ISSUE_STATUSES.has(to))
     return json({ error: 'invalid status' }, 400)
+  const user = await userFromRequest(request)
+  if (!user)
+    return json({ error: 'unauthorized' }, 401)
+  if (!(await ownsIssue(user, issueId)))
+    return json({ error: 'not found' }, 404)
   await db.unsafe('UPDATE issues SET status = $1 WHERE id = $2', [to, issueId])
   return new Response(null, {
     status: 302,
