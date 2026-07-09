@@ -1,14 +1,27 @@
 <script server>
-// bughq issues dashboard. Reads grouped Issues from Postgres via db.unsafe
-// (parameterized, schema-independent), raced against a short timeout so it
-// always renders even before a database is provisioned.
+// bughq issues dashboard. The active project comes from the `?project=` URL
+// param; the client guard (bottom) enforces the bearer token, resolves the
+// user's project list, redirects to the create-app screen when there are none,
+// and populates the project switcher. Reads go through db.unsafe.
 const meta = { title: 'bughq - Issues', description: 'Error tracking' }
 
+const { db } = await import('@stacksjs/database')
+
 // Query params reach server scripts via globalThis.__stxServeSearch (the dev
-// server stashes url.search there); there is no `request.query`.
+// server stashes url.search there); requestContext (cookies/url) does NOT work
+// in server scripts here, so the active project comes from the URL and the
+// client resolves auth + the project list (see the guard at the bottom).
 const query = new URLSearchParams((typeof globalThis !== 'undefined' && globalThis.__stxServeSearch) || '')
-const projectId = query.get('project') || 'demo'
 const statusFilter = query.get('status') || 'unresolved'
+const projectId = query.get('project') || null
+
+let activeProject = null
+if (projectId) {
+  activeProject = (await db.unsafe(
+    'SELECT id, name, platform, ingest_key FROM projects WHERE id = $1 LIMIT 1',
+    [projectId],
+  ))?.[0] ?? null
+}
 
 const filters = [
   { key: 'unresolved', label: 'Unresolved' },
@@ -21,7 +34,8 @@ let counts = { total: 0, unresolved: 0, events: 0 }
 let live = false
 
 async function loadData() {
-  const { db } = await import('@stacksjs/database')
+  if (!projectId)
+    return
   const where = statusFilter === 'all'
     ? ['project_id = $1', [projectId]]
     : ['project_id = $1 AND status = $2', [projectId, statusFilter]]
@@ -38,16 +52,8 @@ async function loadData() {
 }
 
 try {
-  // A host server may pre-fetch the data and inject it as `preloaded`;
-  // otherwise the view queries Postgres itself.
-  if (typeof preloaded !== 'undefined' && preloaded) {
-    issues = preloaded.issues ?? []
-    counts = preloaded.counts ?? counts
-    live = true
-  }
-  else {
+  if (projectId)
     await Promise.race([loadData(), new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 5000))])
-  }
 }
 catch {
   live = false
@@ -119,13 +125,19 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
 
 <div class="min-h-[100dvh] px-5 py-10 md:px-10">
   <div class="max-w-5xl mx-auto">
+    @if (!activeProject)
+      <div class="text-center py-24 text-sm" style="color: var(--text-3)">Loading…</div>
+    @endif
 
+    @if (activeProject)
     <header class="flex flex-wrap items-end justify-between gap-5 mb-10">
-      <div>
+      <div class="flex items-center gap-3">
         <h1 class="wordmark text-2xl md:text-[28px] leading-none">bughq</h1>
-        <p class="text-sm mt-2" style="color: var(--text-3)">
-          Project <span class="mono" style="color: var(--text-2)">{{ projectId }}</span>
-        </p>
+        <select id="proj-switcher" onchange="location.href='/dashboard?project=' + encodeURIComponent(this.value)"
+                class="panel mono px-3 py-1.5 text-sm" style="color: var(--text-2)">
+          <option value="{{ activeProject.id }}" selected>{{ activeProject.name }}</option>
+        </select>
+        <a href="/projects/new" class="pill px-3 py-1.5 text-sm font-medium border" style="color: var(--text-2); border-color: var(--border)">+ New app</a>
       </div>
       <nav class="flex items-center gap-1.5">
         @foreach (filters as f)
@@ -138,8 +150,15 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
 
     @if (!live)
       <div class="panel px-4 py-3 mb-8 text-sm reveal" style="color: var(--text-2)">
-        <span class="font-semibold" style="color: var(--text)">Waiting for data.</span>
-        Provision Postgres and drop the <span class="mono" style="color: var(--accent)">/sdk.js</span> snippet on your app. Captured errors group into issues here.
+        <span class="font-semibold" style="color: var(--text)">Waiting for data.</span> Make sure Postgres is provisioned.
+      </div>
+    @endif
+
+    @if (live && counts.events === 0)
+      <div class="panel px-5 py-5 mb-8 reveal">
+        <div class="text-sm font-semibold mb-1">Install bughq in {{ activeProject.name }}</div>
+        <p class="text-sm mb-3.5" style="color: var(--text-3)">Add this snippet to your app to start capturing errors. They group into issues here automatically.</p>
+        <div id="ingest-snippet" class="mono text-xs px-4 py-3.5 rounded-lg" data-project="{{ activeProject.id }}" data-key="{{ activeProject.ingest_key }}" style="background: var(--bg); border: 1px solid var(--border); color: var(--text-2); white-space: pre; overflow-x: auto"></div>
       </div>
     @endif
 
@@ -187,6 +206,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
         </div>
       @endforelse
     </section>
+    @endif
 
     <footer class="mt-12 text-center text-xs" style="color: var(--text-3)">
       Error tracking on Stacks and Postgres. <span class="mono">bughq.org</span>
@@ -195,39 +215,72 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
   </div>
 </div>
 
-<!-- Client auth guard: redirect to /login when there is no token, and add a
-     logout control. Plain pass-through script (stx client hydration is not
-     available on these served pages). -->
+<!-- Client guard: enforce the bearer token, resolve the user's projects
+     (onboarding when none, pick the first when unselected), fill the project
+     switcher + install snippet, and add the logout / plan chrome. -->
 <script>
 (function () {
-  if (!localStorage.getItem('token')) { window.location.replace('/login'); return }
-  const btn = document.createElement('button')
+  var t = localStorage.getItem('token')
+  if (!t) { window.location.replace('/login'); return }
+  // Mirror the token into a cookie (harmless; lets the server authenticate once
+  // the framework's requestContext cookie access is fixed).
+  if (!/(^|;)\s*token=/.test(document.cookie))
+    document.cookie = 'token=' + t + '; path=/; max-age=2592000; samesite=lax'
+
+  function signOut() {
+    localStorage.removeItem('token'); localStorage.removeItem('user')
+    document.cookie = 'token=; path=/; max-age=0'
+    window.location.assign('/login')
+  }
+  var auth = { headers: { Authorization: 'Bearer ' + t } }
+  var activeId = new URLSearchParams(window.location.search).get('project')
+
+  // Resolve the project list against the current user.
+  fetch('/api/projects', auth)
+    .then(function (r) { if (r.status === 401) { signOut(); return null } return r.ok ? r.json() : null })
+    .then(function (d) {
+      if (!d) return
+      var projects = d.projects || []
+      if (projects.length === 0) { window.location.replace('/projects/new'); return }
+      var mine = activeId && projects.some(function (p) { return p.id === activeId })
+      if (!mine) { window.location.replace('/dashboard?project=' + encodeURIComponent(projects[0].id)); return }
+      var sel = document.getElementById('proj-switcher')
+      if (sel) {
+        sel.innerHTML = ''
+        projects.forEach(function (p) {
+          var o = document.createElement('option')
+          o.value = p.id; o.textContent = p.name
+          if (p.id === activeId) o.selected = true
+          sel.appendChild(o)
+        })
+      }
+    })
+    .catch(function () {})
+
+  // Fill the install snippet with the real origin.
+  var snip = document.getElementById('ingest-snippet')
+  if (snip) {
+    var pid = snip.getAttribute('data-project'), key = snip.getAttribute('data-key')
+    snip.textContent = '<' + 'script src="' + window.location.origin + '/sdk.js"\n        data-project="' + pid + '"\n        data-key="' + key + '"><\/script>'
+  }
+
+  // Chrome: logout + upgrade/plan badge.
+  var btn = document.createElement('button')
   btn.textContent = 'Log out'
   btn.style.cssText = 'position:fixed;top:16px;right:18px;font:500 13px/1 var(--sans,ui-sans-serif);padding:8px 13px;border-radius:9px;border:1px solid var(--border,rgba(148,163,184,0.2));background:var(--panel,#fff);color:var(--text-2,#555);cursor:pointer;z-index:60'
-  btn.addEventListener('click', function () {
-    localStorage.removeItem('token'); localStorage.removeItem('user')
-    window.location.assign('/login')
-  })
-  const up = document.createElement('a')
-  up.textContent = 'Upgrade'
-  up.href = '/pricing'
+  btn.addEventListener('click', signOut)
+  var up = document.createElement('a')
+  up.textContent = 'Upgrade'; up.href = '/pricing'
   up.style.cssText = 'position:fixed;top:16px;right:112px;font:600 13px/1 var(--sans,ui-sans-serif);padding:8px 13px;border-radius:9px;background:var(--accent);color:#fff;text-decoration:none;z-index:60'
-  document.body.appendChild(up)
-  document.body.appendChild(btn)
+  document.body.appendChild(up); document.body.appendChild(btn)
 
-  // Reflect the plan: when the account is Pro, swap the Upgrade CTA for a
-  // non-interactive Pro badge. `/me` reports Pro from the local subscriptions
-  // table, which the Stripe webhook keeps in sync after checkout.
-  fetch('/api/me', { headers: { Authorization: 'Bearer ' + localStorage.getItem('token') } })
-    .then(function (r) { return r.ok ? r.json() : null })
+  fetch('/api/me', auth)
+    .then(function (r) { if (r.status === 401) { signOut(); return null } return r.ok ? r.json() : null })
     .then(function (d) {
       if (d && d.pro) {
-        up.textContent = 'Pro'
-        up.removeAttribute('href')
-        up.style.background = 'transparent'
-        up.style.color = 'var(--accent)'
-        up.style.border = '1px solid var(--accent)'
-        up.style.cursor = 'default'
+        up.textContent = 'Pro'; up.removeAttribute('href')
+        up.style.background = 'transparent'; up.style.color = 'var(--accent)'
+        up.style.border = '1px solid var(--accent)'; up.style.cursor = 'default'
       }
     })
     .catch(function () {})

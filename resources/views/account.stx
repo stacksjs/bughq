@@ -91,6 +91,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
       fetch('/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + token } })
     } catch (e) {}
     localStorage.removeItem('token'); localStorage.removeItem('user')
+    document.cookie = 'token=; path=/; max-age=0'
     window.location.assign('/login')
   })
 
