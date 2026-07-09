@@ -214,5 +214,22 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
   up.style.cssText = 'position:fixed;top:16px;right:112px;font:600 13px/1 var(--sans,ui-sans-serif);padding:8px 13px;border-radius:9px;background:var(--accent);color:#fff;text-decoration:none;z-index:60'
   document.body.appendChild(up)
   document.body.appendChild(btn)
+
+  // Reflect the plan: when the account is Pro, swap the Upgrade CTA for a
+  // non-interactive Pro badge. `/me` reports Pro from the local subscriptions
+  // table, which the Stripe webhook keeps in sync after checkout.
+  fetch('/me', { headers: { Authorization: 'Bearer ' + localStorage.getItem('token') } })
+    .then(function (r) { return r.ok ? r.json() : null })
+    .then(function (d) {
+      if (d && d.pro) {
+        up.textContent = 'Pro'
+        up.removeAttribute('href')
+        up.style.background = 'transparent'
+        up.style.color = 'var(--accent)'
+        up.style.border = '1px solid var(--accent)'
+        up.style.cursor = 'default'
+      }
+    })
+    .catch(function () {})
 })()
 </script>

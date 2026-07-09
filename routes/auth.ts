@@ -13,6 +13,7 @@ import { route } from '@stacksjs/router'
 route.post('/login', 'Actions/Auth/LoginAction').skipCsrf().rateLimit(5, 'minute')
 route.post('/register', 'Actions/Auth/RegisterAction').skipCsrf().rateLimit(3, 'minute')
 route.post('/logout', 'Actions/Auth/LogoutAction').skipCsrf()
+route.get('/me', 'Actions/MeAction').skipCsrf()
 
 // Billing (Stripe). Checkout requires an authenticated user (bearer token);
 // the webhook is a Stripe callback so it skips CSRF and auth.
