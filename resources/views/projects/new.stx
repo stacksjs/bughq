@@ -6,7 +6,7 @@ const error = state('')
 const loading = state(false)
 const created = state(null)
 
-;(function guard() {
+function ensureAuthed() {
   const t = localStorage.getItem('token')
   if (!t) {
     window.location.replace('/login')
@@ -16,7 +16,8 @@ const created = state(null)
   // authenticate this user on plain navigation.
   if (!/(^|;)\s*token=/.test(document.cookie))
     document.cookie = `token=${t}; path=/; max-age=2592000; samesite=lax`
-})()
+}
+ensureAuthed()
 
 async function handleSubmit(e) {
   e.preventDefault()
@@ -61,7 +62,11 @@ async function handleSubmit(e) {
 function snippet(p) {
   if (!p)
     return ''
-  return `<script src="${window.location.origin}/sdk.js"\n        data-project="${p.id}"\n        data-key="${p.ingest_key}"><\/script>`
+  // Build the tag name from a variable so the literal closing-tag characters
+  // never appear in this client block (the HTML parser would treat them as the
+  // end of the block and truncate the script).
+  const tag = `scr${'ipt'}`
+  return `<${tag} src="${window.location.origin}/sdk.js"\n        data-project="${p.id}"\n        data-key="${p.ingest_key}"></${tag}>`
 }
 
 function copySnippet() {
