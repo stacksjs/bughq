@@ -86,7 +86,7 @@ function runs(bin: string): boolean {
 
 interface CdpEvent { method: string, params: any }
 
-class Cdp {
+export class Cdp {
   private ws: WebSocket
   private id = 0
   private pending = new Map<number, { resolve: (v: any) => void, reject: (e: any) => void }>()
@@ -185,7 +185,7 @@ async function tryLaunch(browser: string): Promise<Session | null> {
   return null
 }
 
-async function launch(): Promise<Session> {
+export async function launch(): Promise<Session> {
   const tried: string[] = []
   for (const browser of collectCandidates()) {
     if (!runs(browser)) { tried.push(`${browser} (won't run)`); continue }
@@ -197,7 +197,7 @@ async function launch(): Promise<Session> {
   throw new Error(`Could not launch any browser. Tried:\n  ${tried.join('\n  ')}\nSet BROWSE_BROWSER=/path/to/chrome to override.`)
 }
 
-async function openPage(port: number): Promise<Cdp> {
+export async function openPage(port: number): Promise<Cdp> {
   // The initial about:blank tab already exists; grab its page-level WS URL.
   for (let i = 0; i < 50; i++) {
     try {
@@ -212,7 +212,7 @@ async function openPage(port: number): Promise<Cdp> {
   throw new Error('Could not find a page target to attach to.')
 }
 
-function kill(s: Session): void {
+export function kill(s: Session): void {
   try { s.proc.kill() }
   catch { /* ignore */ }
 }
@@ -437,7 +437,9 @@ async function main() {
   }
 }
 
-main().catch((e) => {
-  console.error('browse error:', e?.message || e)
-  process.exit(1)
-})
+if (import.meta.main) {
+  main().catch((e) => {
+    console.error('browse error:', e?.message || e)
+    process.exit(1)
+  })
+}
