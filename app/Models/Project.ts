@@ -6,9 +6,11 @@ export default defineModel({
   table: 'projects',
   primaryKey: 'id',
 
+  // No `useApi`: the auto-generated CRUD is not owner-scoped, which would let
+  // any authenticated user read/modify another tenant's projects. Project
+  // access goes through the owner-scoped routes in routes/projects.ts instead.
   traits: {
     useTimestamps: true,
-    useApi: { uri: 'projects', routes: ['index', 'store', 'show', 'update', 'destroy'] },
   },
 
   hasMany: ['ErrorEvent', 'Issue'],
