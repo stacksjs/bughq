@@ -13,7 +13,12 @@ import { route } from '@stacksjs/router'
 route.post('/login', 'Actions/Auth/LoginAction').skipCsrf().rateLimit(5, 'minute')
 route.post('/register', 'Actions/Auth/RegisterAction').skipCsrf().rateLimit(3, 'minute')
 route.post('/logout', 'Actions/Auth/LogoutAction').skipCsrf()
-route.get('/me', 'Actions/MeAction').skipCsrf()
+route.get('/api/me', 'Actions/MeAction').skipCsrf()
+
+// Social sign-in (GitHub, Google) via the native @stacksjs/socials drivers.
+// GET flows, CSRF-exempt; provider credentials come from config/services.ts.
+route.get('/api/auth/{provider}/redirect', 'Actions/Auth/SocialRedirectAction').skipCsrf()
+route.get('/api/auth/{provider}/callback', 'Actions/Auth/SocialCallbackAction').skipCsrf()
 
 // Billing (Stripe). Checkout requires an authenticated user (bearer token);
 // the webhook is a Stripe callback so it skips CSRF and auth.

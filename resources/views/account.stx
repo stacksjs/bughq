@@ -1,0 +1,147 @@
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+:root {
+  --bg: #fbfbfd; --panel: #ffffff; --border: rgba(15,23,42,0.09);
+  --text: #0b0f19; --text-2: #4b5565; --text-3: #97a1b2; --accent: #e11d48;
+  --sans: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif; --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #090b11; --panel: #10131c; --border: rgba(148,163,184,0.12);
+    --text: #f3f5f9; --text-2: #b3bccb; --text-3: #667085; --accent: #fb7185; }
+}
+:root[data-theme="dark"] { --bg: #090b11; --panel: #10131c; --border: rgba(148,163,184,0.12);
+  --text: #f3f5f9; --text-2: #b3bccb; --text-3: #667085; --accent: #fb7185; }
+:root[data-theme="light"] { --bg: #fbfbfd; --panel: #ffffff; --border: rgba(15,23,42,0.09);
+  --text: #0b0f19; --text-2: #4b5565; --text-3: #97a1b2; --accent: #e11d48; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+.wordmark { font-weight: 700; letter-spacing: -0.03em; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; }
+.btn { border-radius: 10px; transition: transform 0.12s ease, opacity 0.15s ease, background-color 0.15s ease; font-weight: 600; }
+.btn:active { transform: translateY(1px); }
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
+.btn-ghost { border: 1px solid var(--border); color: var(--text); }
+.btn-ghost:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.badge { border: 1px solid var(--border); border-radius: 999px; font-family: var(--mono); font-size: 11px; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-2); }
+.badge-pro { border-color: var(--accent); color: var(--accent); }
+.avatar { border-radius: 999px; object-fit: cover; background: color-mix(in srgb, var(--accent) 14%, var(--panel)); }
+.row { border-top: 1px solid var(--border); }
+.skeleton { background: color-mix(in srgb, var(--text-3) 20%, transparent); border-radius: 6px; animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: 0.5; } 50% { opacity: 0.9; } }
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+</style>
+
+<div class="min-h-[100dvh]">
+  <header class="max-w-3xl mx-auto flex items-center justify-between px-5 md:px-6 h-16">
+    <a href="/" class="wordmark text-lg">bughq</a>
+    <div class="flex items-center gap-2.5">
+      <a href="/dashboard" class="btn btn-ghost px-3.5 py-2 text-sm">Dashboard</a>
+      <button id="logout" class="btn btn-ghost px-3.5 py-2 text-sm">Log out</button>
+    </div>
+  </header>
+
+  <main class="max-w-3xl mx-auto px-5 md:px-6 py-8">
+    <h1 class="wordmark text-2xl mb-6">Account</h1>
+
+    <section class="card p-6 mb-5">
+      <div class="flex items-center gap-4">
+        <img id="avatar" class="avatar w-14 h-14" alt="" width="56" height="56" style="display:none">
+        <div id="avatar-fallback" class="avatar w-14 h-14 grid place-items-center" style="color: var(--accent); font-weight: 700; font-size: 1.25rem"></div>
+        <div class="min-w-0">
+          <div id="name" class="skeleton" style="width: 160px; height: 20px"></div>
+          <div id="email" class="text-sm mt-1.5" style="color: var(--text-2)"></div>
+        </div>
+        <span id="provider" class="badge px-2.5 py-1 ml-auto" style="display:none"></span>
+      </div>
+    </section>
+
+    <section class="card mb-5">
+      <div class="flex items-center justify-between px-6 py-4">
+        <div>
+          <div class="text-xs uppercase tracking-wide" style="color: var(--text-3); font-family: var(--mono)">Plan</div>
+          <div id="plan" class="text-base font-semibold mt-1">Free</div>
+        </div>
+        <a id="plan-cta" href="/pricing" class="btn btn-primary px-4 py-2 text-sm">Upgrade to Pro</a>
+      </div>
+      <div class="row flex items-center justify-between px-6 py-4">
+        <div>
+          <div class="text-xs uppercase tracking-wide" style="color: var(--text-3); font-family: var(--mono)">Member since</div>
+          <div id="since" class="text-base mt-1" style="color: var(--text-2)">--</div>
+        </div>
+        <a href="/dashboard" class="btn btn-ghost px-4 py-2 text-sm">Open dashboard</a>
+      </div>
+    </section>
+
+    <p class="text-sm" style="color: var(--text-3)">
+      Signed in with a private token. <a href="/" style="color: var(--accent)">Back to site</a>
+    </p>
+  </main>
+</div>
+
+<script>
+(function () {
+  var token = localStorage.getItem('token')
+  if (!token) { window.location.replace('/login'); return }
+
+  document.getElementById('logout').addEventListener('click', function () {
+    try {
+      fetch('/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + token } })
+    } catch (e) {}
+    localStorage.removeItem('token'); localStorage.removeItem('user')
+    window.location.assign('/login')
+  })
+
+  function initial(s) { return (s || '?').trim().charAt(0).toUpperCase() }
+  function fmtDate(v) {
+    if (!v) return '--'
+    var d = new Date(v)
+    if (isNaN(d.getTime())) return '--'
+    return d.toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })
+  }
+
+  fetch('/api/me', { headers: { Authorization: 'Bearer ' + token } })
+    .then(function (r) {
+      if (r.status === 401) { localStorage.removeItem('token'); window.location.replace('/login'); return null }
+      return r.json()
+    })
+    .then(function (d) {
+      if (!d || !d.user) return
+      var u = d.user
+      var nameEl = document.getElementById('name')
+      nameEl.className = 'text-lg font-semibold'
+      nameEl.style.width = 'auto'; nameEl.style.height = 'auto'
+      nameEl.textContent = u.name || 'Your account'
+      document.getElementById('email').textContent = u.email || ''
+      document.getElementById('since').textContent = fmtDate(u.created_at)
+
+      if (u.avatar) {
+        var img = document.getElementById('avatar')
+        img.src = u.avatar; img.style.display = 'block'
+        document.getElementById('avatar-fallback').style.display = 'none'
+      } else {
+        document.getElementById('avatar-fallback').textContent = initial(u.name || u.email)
+      }
+
+      if (u.provider) {
+        var p = document.getElementById('provider')
+        p.textContent = u.provider
+        p.style.display = 'inline-block'
+      }
+
+      var isPro = d.pro === true
+      var plan = document.getElementById('plan')
+      plan.textContent = isPro ? 'Pro' : 'Free'
+      var cta = document.getElementById('plan-cta')
+      if (isPro) {
+        plan.className = 'text-base font-semibold mt-1'
+        plan.insertAdjacentHTML('beforeend', ' <span class="badge badge-pro px-2 py-0.5 ml-1">active</span>')
+        cta.textContent = 'Manage plan'
+        cta.className = 'btn btn-ghost px-4 py-2 text-sm'
+      }
+    })
+    .catch(function () {})
+})()
+</script>

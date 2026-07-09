@@ -26,6 +26,10 @@ export default {
       title: 'Issues - bughq',
       description: 'Grouped production errors with live counts, affected-user tallies, and severity triage.',
     },
+    '/account': {
+      title: 'Account - bughq',
+      description: 'Your bughq profile, plan, and sign-in method.',
+    },
     '/use-cases': {
       title: 'Use cases - bughq',
       description: 'How SaaS teams, on-call engineers, agencies, indie devs, and open-source maintainers use bughq to catch and triage production errors.',
