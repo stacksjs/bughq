@@ -88,6 +88,9 @@ jobs:
           echo "--- plain bun eval (does bunfig preload crash?) ---"
           bun -e "console.log('BUN_EVAL_OK')" 2>&1 | head -20
           echo "eval exit: ${PIPESTATUS[0]}"
+          echo "--- preloader direct with deploy args (catch throw) ---"
+          bun -e "process.argv.push('deploy','--staging'); try { await import('./resources/plugins/preloader.ts'); console.log('PRELOADER_OK db=' + String(process.env.DB_CONNECTION).slice(0,12)) } catch (e) { console.log('PRELOADER_THREW:', e && e.message); console.log((e && e.stack || '').split('\n').slice(0,4).join(' | ')) }" 2>&1 | grep -viE "^\[env\] loaded" | head -20
+          echo "preloader test exit: ${PIPESTATUS[0]}"
 
       - name: Deploy (${{ needs.determine-environment.outputs.environment }})
         # Invoke the buddy CLI from node_modules directly rather than via the
