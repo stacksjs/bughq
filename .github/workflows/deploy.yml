@@ -74,7 +74,12 @@ jobs:
         # app has neither, and on a fresh CI checkout the wrapper exited 1
         # before ever reaching bun. This is the same entrypoint the site
         # `start` commands use.
-        run: bun node_modules/@stacksjs/buddy/dist/cli.js deploy ${{ needs.determine-environment.outputs.flag }} --yes
+        run: |
+          set +e
+          bun node_modules/@stacksjs/buddy/dist/cli.js deploy ${{ needs.determine-environment.outputs.flag }} --yes 2>&1 | tee /tmp/deploy.log
+          code=${PIPESTATUS[0]}
+          echo "=== buddy deploy exit code: ${code} ==="
+          exit "${code}"
         env:
           APP_ENV: ${{ needs.determine-environment.outputs.environment }}
           # Decrypt this app's own .env.<environment>.
