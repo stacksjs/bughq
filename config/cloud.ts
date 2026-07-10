@@ -695,7 +695,7 @@ export const tsCloud: TsCloudConfig = {
       // `./buddy serve` resolves the framework CLI from node_modules
       // (@stacksjs/buddy) — no vendored storage/framework/core needed. Port
       // 3022 is bughq's slot on the shared box (localhost-only; rpx fronts it).
-      start: './buddy serve',
+      start: 'bun node_modules/@stacksjs/buddy/dist/cli.js serve',
       port: 3022,
       preStart: ['bun install'],
       env: {
@@ -708,7 +708,7 @@ export const tsCloud: TsCloudConfig = {
     // No domain ⇒ rpx skips it; the firewall keeps :3023 off the public net.
     'bughq-api': {
       root: '.',
-      start: './buddy serve:api',
+      start: 'bun node_modules/@stacksjs/actions/dist/src/serve/api.js',
       port: 3023,
       preStart: ['bun install'],
       env: { HOST: '127.0.0.1' },

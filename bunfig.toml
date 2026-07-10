@@ -7,8 +7,8 @@
 #   2. main preloader wires auto-imports + framework plugins; safe to run
 #      after the env layer because it can now read decrypted secrets too.
 preload = [
-  "./storage/framework/core/env/plugin.ts",
-  "./storage/framework/defaults/resources/plugins/preloader.ts",
+  "@stacksjs/env/dist/plugin.js",
+  "@stacksjs/defaults/resources/plugins/preloader.ts",
 ]
 
 [test]
@@ -16,7 +16,7 @@ preload = [
 # suite — match production boot semantics rather than papering over a
 # different decrypt path in test-only code.
 preload = [
-  "./storage/framework/core/env/plugin.ts",
+  "@stacksjs/env/dist/plugin.js",
   "./tests/setup.ts",
 ]
 coverage = false
