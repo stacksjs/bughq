@@ -67,6 +67,28 @@ jobs:
             chmod 644 ~/.ssh/id_ed25519.pub
           fi
 
+      - name: Deploy diagnostics
+        env:
+          APP_ENV: ${{ needs.determine-environment.outputs.environment }}
+          DOTENV_PRIVATE_KEY_STAGING: ${{ secrets.DOTENV_PRIVATE_KEY_STAGING }}
+          DOTENV_PRIVATE_KEY_PRODUCTION: ${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}
+          DOTENV_PRIVATE_KEY_DEVELOPMENT: ${{ secrets.DOTENV_PRIVATE_KEY_DEVELOPMENT }}
+        run: |
+          set +e
+          echo "bun: $(bun --version)  pwd: $(pwd)"
+          ls -la node_modules/@stacksjs/buddy/dist/cli.js || echo "NO cli.js"
+          echo "env files:"; ls -la .env* 2>&1 || true
+          echo "bunfig preload resolves?"; ls -la node_modules/@stacksjs/env/dist/plugin.js 2>&1 || echo "NO plugin.js"
+          echo "--- buddy --version ---"
+          bun node_modules/@stacksjs/buddy/dist/cli.js --version 2>&1 | head -20
+          echo "version exit: ${PIPESTATUS[0]}"
+          echo "--- buddy --help (first 6 lines) ---"
+          bun node_modules/@stacksjs/buddy/dist/cli.js --help 2>&1 | head -6
+          echo "help exit: ${PIPESTATUS[0]}"
+          echo "--- plain bun eval (does bunfig preload crash?) ---"
+          bun -e "console.log('BUN_EVAL_OK')" 2>&1 | head -20
+          echo "eval exit: ${PIPESTATUS[0]}"
+
       - name: Deploy (${{ needs.determine-environment.outputs.environment }})
         # Invoke the buddy CLI from node_modules directly rather than via the
         # ./buddy wrapper. The wrapper is built for the vendored/pantry layout
