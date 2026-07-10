@@ -67,44 +67,12 @@ jobs:
             chmod 644 ~/.ssh/id_ed25519.pub
           fi
 
-      - name: Deploy diagnostics
-        env:
-          APP_ENV: ${{ needs.determine-environment.outputs.environment }}
-          DOTENV_PRIVATE_KEY_STAGING: ${{ secrets.DOTENV_PRIVATE_KEY_STAGING }}
-          DOTENV_PRIVATE_KEY_PRODUCTION: ${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}
-          DOTENV_PRIVATE_KEY_DEVELOPMENT: ${{ secrets.DOTENV_PRIVATE_KEY_DEVELOPMENT }}
-        run: |
-          set +e
-          echo "bun: $(bun --version)  pwd: $(pwd)"
-          ls -la node_modules/@stacksjs/buddy/dist/cli.js || echo "NO cli.js"
-          echo "env files:"; ls -la .env* 2>&1 || true
-          echo "bunfig preload resolves?"; ls -la node_modules/@stacksjs/env/dist/plugin.js 2>&1 || echo "NO plugin.js"
-          echo "--- buddy --version ---"
-          bun node_modules/@stacksjs/buddy/dist/cli.js --version 2>&1 | head -20
-          echo "version exit: ${PIPESTATUS[0]}"
-          echo "--- buddy --help (first 6 lines) ---"
-          bun node_modules/@stacksjs/buddy/dist/cli.js --help 2>&1 | head -6
-          echo "help exit: ${PIPESTATUS[0]}"
-          echo "--- plain bun eval (does bunfig preload crash?) ---"
-          bun -e "console.log('BUN_EVAL_OK')" 2>&1 | head -20
-          echo "eval exit: ${PIPESTATUS[0]}"
-          echo "--- preloader direct with deploy args (catch throw) ---"
-          bun -e "process.argv.push('deploy','--staging'); try { await import('./resources/plugins/preloader.ts'); console.log('PRELOADER_OK db=' + String(process.env.DB_CONNECTION).slice(0,12)) } catch (e) { console.log('PRELOADER_THREW:', e && e.message); console.log((e && e.stack || '').split('\n').slice(0,4).join(' | ')) }" 2>&1 | grep -viE "^\[env\] loaded" | head -20
-          echo "preloader test exit: ${PIPESTATUS[0]}"
-
       - name: Deploy (${{ needs.determine-environment.outputs.environment }})
         # Invoke the buddy CLI from node_modules directly rather than via the
         # ./buddy wrapper. The wrapper is built for the vendored/pantry layout
         # (it resolves a project-local pantry bun + NODE_PATH); a node_modules
-        # app has neither, and on a fresh CI checkout the wrapper exited 1
-        # before ever reaching bun. This is the same entrypoint the site
-        # `start` commands use.
-        run: |
-          set +e
-          bun node_modules/@stacksjs/buddy/dist/cli.js deploy ${{ needs.determine-environment.outputs.flag }} --yes 2>&1 | tee /tmp/deploy.log
-          code=${PIPESTATUS[0]}
-          echo "=== buddy deploy exit code: ${code} ==="
-          exit "${code}"
+        # app has neither. This is the same entrypoint the site `start` commands use.
+        run: bun node_modules/@stacksjs/buddy/dist/cli.js deploy ${{ needs.determine-environment.outputs.flag }} --yes
         env:
           APP_ENV: ${{ needs.determine-environment.outputs.environment }}
           # Decrypt this app's own .env.<environment>.
@@ -117,13 +85,3 @@ jobs:
           PORKBUN_API_KEY: ${{ secrets.PORKBUN_API_KEY }}
           PORKBUN_SECRET_KEY: ${{ secrets.PORKBUN_SECRET_KEY }}
           COPYFILE_DISABLE: '1'
-
-      - name: Boot debug log
-        if: always()
-        run: |
-          echo "=== /tmp/exit.log ==="
-          cat /tmp/exit.log 2>/dev/null || echo "(no exit.log)"
-          echo "=== /tmp/boot-debug.log ==="
-          cat /tmp/boot-debug.log 2>/dev/null || echo "(no boot-debug.log)"
-          echo "=== /tmp/deploy.log (tail) ==="
-          tail -60 /tmp/deploy.log 2>/dev/null || echo "(no deploy.log)"

@@ -315,30 +315,14 @@ export async function loadAutoImports() {
 // discoverPackages pass is redundant work on the critical boot path. Skip it.
 const skipAutoImports = skipPreloader || process.env.STACKS_DEV_SERVER === '1' || (args.length > 0 && ['--version', '-v', 'version', '--help', '-h', 'help'].includes(args[0]))
 if (!skipAutoImports) {
-  try {
-    await loadAutoImports()
+  await loadAutoImports()
 
-    // Run package auto-discovery after all imports are loaded
-    try {
-      const { discoverPackages } = await import('@stacksjs/actions')
-      await discoverPackages()
-    }
-    catch {
-      // Discovery may fail during early bootstrap — not critical
-    }
+  // Run package auto-discovery after all imports are loaded
+  try {
+    const { discoverPackages } = await import('@stacksjs/actions')
+    await discoverPackages()
   }
-  catch (bootErr) {
-    // TEMP DEBUG: the deploy preloader was exiting 1 with zero output on CI.
-    // Surface any throw synchronously to stderr + a file that survives a fast
-    // process exit, so we can see what actually fails on the runner.
-    const msg = `[BOOT-THROW] loadAutoImports: ${(bootErr as any)?.stack || String(bootErr)}\n`
-    // eslint-disable-next-line no-console
-    console.error(msg)
-    try {
-      const fs = await import('node:fs')
-      fs.appendFileSync('/tmp/boot-debug.log', msg)
-    }
-    catch {}
-    throw bootErr
+  catch {
+    // Discovery may fail during early bootstrap — not critical
   }
 }
