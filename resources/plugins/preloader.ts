@@ -44,11 +44,20 @@ if (!skipPreloader) {
   const productionCommands = ['cloud:remove', 'cloud:rm', 'cloud:destroy', 'cloud:cleanup', 'cloud:clean-up', 'undeploy']
   const isProductionCommand = productionCommands.includes(args[0])
 
-  // Handle deploy command which can have an optional env argument: `deploy [env]`
+  // Handle deploy command: the env may be positional (`deploy staging`) or a
+  // flag (`deploy --staging`). The CI deploy uses the flag form, so detecting
+  // only the positional arg left APP_ENV wrong and loaded the wrong .env file.
   const isDeployCommand = args[0] === 'deploy'
   if (isDeployCommand) {
-    // Check if second arg is an environment (not a flag starting with -)
-    const deployEnv = args[1] && !args[1].startsWith('-') ? args[1] : 'production'
+    const flagEnv = args.includes('--production') || args.includes('--prod')
+      ? 'production'
+      : args.includes('--staging')
+        ? 'staging'
+        : args.includes('--development') || args.includes('--dev')
+          ? 'development'
+          : undefined
+    const positionalEnv = args[1] && !args[1].startsWith('-') ? args[1] : undefined
+    const deployEnv = flagEnv ?? positionalEnv ?? 'production'
     process.env.APP_ENV = deployEnv
     process.env.NODE_ENV = deployEnv
   }
@@ -71,7 +80,18 @@ if (!skipPreloader) {
   // process.env.SOME_SECRET directly (e.g. deploy-time credentials like
   // HCLOUD_TOKEN/PORKBUN_API_KEY) with no error — it just looks like a
   // bogus/expired credential downstream.
-  autoLoadEnv({ quiet: true, keysFile: '.env.keys' })
+  // Pass the resolved environment so autoLoadEnv reads `.env.<env>` with the
+  // matching `DOTENV_PRIVATE_KEY_<ENV>`. Without it autoLoadEnv defaults to
+  // `development`, so a staging/production deploy (or a server started with
+  // APP_ENV=staging) loaded the wrong env file and left values encrypted.
+  //
+  // `overload: true` is required because the earlier `@stacksjs/env/plugin.js`
+  // bunfig preload auto-loads `.env` WITHOUT a key/env, seeding process.env
+  // with still-encrypted values. loadEnv skips already-set vars, so without
+  // overload those encrypted values would win and config.database.default etc.
+  // stay `encrypted:…`. Overloading lets this properly-decrypted pass replace
+  // them.
+  autoLoadEnv({ quiet: true, keysFile: '.env.keys', env: process.env.APP_ENV, overload: true })
 }
 
 // stx template engine plugin
