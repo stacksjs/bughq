@@ -184,6 +184,10 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
 .reveal { opacity: 0; transform: translateY(10px); animation: reveal 0.5s cubic-bezier(0.16,1,0.3,1) forwards; }
 @keyframes reveal { to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .reveal { animation: none; opacity: 1; transform: none; } }
+summary { list-style: none; cursor: pointer; }
+summary::-webkit-details-marker { display: none; }
+.copy-btn { position: absolute; top: 8px; right: 8px; font: 500 11px/1 var(--sans); padding: 5px 9px; border-radius: 7px; border: 1px solid var(--border); background: var(--panel); color: var(--text-3); cursor: pointer; }
+.copy-btn:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
 </style>
 
 <div class="min-h-[100dvh] px-5 py-10 md:px-10">
@@ -230,18 +234,26 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
       </div>
     @endif
 
-    @if (live && counts.events === 0)
-      <div class="panel px-5 py-5 mb-8 reveal">
-        <div class="flex items-center justify-between mb-1">
-          <div class="text-sm font-semibold">Install bughq in {{ activeProject.name }}</div>
+    @if (activeProject)
+      <details id="setup-panel" class="panel mb-8 reveal" data-open="{{ counts.events === 0 ? '1' : '0' }}">
+        <summary class="flex items-center justify-between px-5 py-4">
+          <span class="text-sm font-semibold">Setup · install bughq in {{ activeProject.name }}</span>
           <span class="mono text-[11px] px-2 py-0.5 rounded-full" style="border: 1px solid var(--border); color: var(--text-3)">{{ guide.label }}</span>
+        </summary>
+        <div class="px-5 pb-5">
+          <p class="text-sm mb-3.5" style="color: var(--text-3)">Wire this into your app to start capturing errors. They group into issues here automatically.</p>
+          @if (guide.install)
+            <div class="relative mb-2">
+              <div class="mono text-xs px-4 py-2.5 pr-16 rounded-lg" style="background: var(--bg); border: 1px solid var(--border); color: var(--text-2); overflow-x: auto">{{ guide.install }}</div>
+              <button type="button" class="copy-btn" data-copy>Copy</button>
+            </div>
+          @endif
+          <div class="relative">
+            <div class="mono text-xs px-4 py-3.5 pr-16 rounded-lg" style="background: var(--bg); border: 1px solid var(--border); color: var(--text-2); white-space: pre; overflow-x: auto">{{ guide.code }}</div>
+            <button type="button" class="copy-btn" data-copy>Copy</button>
+          </div>
         </div>
-        <p class="text-sm mb-3.5" style="color: var(--text-3)">Wire this into your app to start capturing errors. They group into issues here automatically.</p>
-        @if (guide.install)
-          <div class="mono text-xs px-4 py-2.5 rounded-lg mb-2" style="background: var(--bg); border: 1px solid var(--border); color: var(--text-2); overflow-x: auto">{{ guide.install }}</div>
-        @endif
-        <div class="mono text-xs px-4 py-3.5 rounded-lg" style="background: var(--bg); border: 1px solid var(--border); color: var(--text-2); white-space: pre; overflow-x: auto">{{ guide.code }}</div>
-      </div>
+      </details>
     @endif
 
     <!-- Stats: hairline-separated, mono numerics, no heavy card chrome -->
@@ -318,6 +330,23 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
     window.location.assign('/login')
   }
   var auth = { headers: { Authorization: 'Bearer ' + t } }
+
+  // Setup panel: open by default for a fresh project; wire copy buttons.
+  var setup = document.getElementById('setup-panel')
+  if (setup && setup.getAttribute('data-open') === '1')
+    setup.open = true
+  document.querySelectorAll('.copy-btn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var code = b.previousElementSibling ? b.previousElementSibling.textContent : ''
+      if (navigator.clipboard && code) {
+        navigator.clipboard.writeText(code).then(function () {
+          var prev = b.textContent
+          b.textContent = 'Copied'
+          setTimeout(function () { b.textContent = prev }, 1200)
+        })
+      }
+    })
+  })
 
   // Chrome: logout + upgrade/plan badge.
   var btn = document.createElement('button')
