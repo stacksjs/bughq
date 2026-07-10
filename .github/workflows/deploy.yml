@@ -117,3 +117,11 @@ jobs:
           PORKBUN_API_KEY: ${{ secrets.PORKBUN_API_KEY }}
           PORKBUN_SECRET_KEY: ${{ secrets.PORKBUN_SECRET_KEY }}
           COPYFILE_DISABLE: '1'
+
+      - name: Boot debug log
+        if: always()
+        run: |
+          echo "=== /tmp/boot-debug.log ==="
+          cat /tmp/boot-debug.log 2>/dev/null || echo "(no boot-debug.log)"
+          echo "=== /tmp/deploy.log (tail) ==="
+          tail -40 /tmp/deploy.log 2>/dev/null || echo "(no deploy.log)"
