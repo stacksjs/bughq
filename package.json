@@ -68,11 +68,11 @@
     "sqlite": "^3.47.2"
   },
   "dependencies": {
-    "@stacksjs/defaults": "^0.70.59",
+    "@stacksjs/defaults": "^0.70.60",
     "@stacksjs/ts-cloud": "^0.7.12",
     "@ts-cloud/aws-types": "^0.7.12",
     "@ts-cloud/core": "^0.7.12",
-    "stacks": "^0.70.59"
+    "stacks": "^0.70.60"
   },
   "devDependencies": {
     "better-dx": "^0.2.15"
