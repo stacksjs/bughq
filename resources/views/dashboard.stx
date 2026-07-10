@@ -1,16 +1,14 @@
 <script server>
-// bughq issues dashboard. The active project comes from the `?project=` URL
-// param; the client guard (bottom) enforces the bearer token, resolves the
-// user's project list, redirects to the create-app screen when there are none,
-// and populates the project switcher. Reads go through db.unsafe.
+// bughq issues dashboard. Authenticates the current user from the token cookie
+// (mirrored from localStorage by login/register), loads THEIR projects
+// owner-scoped, and renders the active one (from ?project=, else the first).
+// Users with no projects are sent to the create-app screen. Reads via db.unsafe.
 const meta = { title: 'bughq - Issues', description: 'Error tracking' }
 
 const { db } = await import('@stacksjs/database')
 
-// Query params reach server scripts via globalThis.__stxServeSearch (the dev
-// server stashes url.search there); requestContext (cookies/url) does NOT work
-// in server scripts here, so the active project comes from the URL and the
-// client resolves auth + the project list (see the guard at the bottom).
+// Query params (project/status) come from globalThis.__stxServeSearch (the dev
+// server stashes url.search there).
 const query = new URLSearchParams((typeof globalThis !== 'undefined' && globalThis.__stxServeSearch) || '')
 const statusFilter = query.get('status') || 'unresolved'
 const requestedProject = query.get('project')
