@@ -27,9 +27,13 @@ export const tsCloud: TsCloudConfig = {
     region: 'us-east-1', // Default AWS region
   },
 
-  // Deploy compute to Hetzner Cloud (apiToken falls back to HCLOUD_TOKEN env).
+  // Attach to the shared box owned by the `stacks` project instead of
+  // provisioning our own: the deploy resolves the `stacks-<env>-app` server,
+  // ships only bughq's sites, and adds an additive rpx `sites.d/bughq.json`
+  // fragment + DNS — never touching the box lifecycle or other tenants.
   cloud: {
     provider: 'hetzner',
+    attachTo: 'stacks',
   },
 
   /**
@@ -51,6 +55,8 @@ export const tsCloud: TsCloudConfig = {
   environments: {
     production: {
       type: 'production',
+      // Push to `main` → deploy here (bare apex bughq.org).
+      deployBranch: 'main',
       region: 'us-east-1',
       variables: {
         NODE_ENV: 'production',
@@ -143,6 +149,10 @@ export const tsCloud: TsCloudConfig = {
     },
     staging: {
       type: 'staging',
+      // Push to `stage` → deploy here, served at `staging.bughq.org` on the
+      // shared `stacks-staging-app` box.
+      deployBranch: 'stage',
+      domainPrefix: 'staging',
       region: 'us-east-1',
       variables: {
         NODE_ENV: 'staging',
@@ -151,6 +161,9 @@ export const tsCloud: TsCloudConfig = {
     },
     development: {
       type: 'development',
+      // Push to `dev` → deploy here, served at `dev.bughq.org`.
+      deployBranch: 'dev',
+      domainPrefix: 'dev',
       region: 'us-east-1',
       variables: {
         NODE_ENV: 'development',
@@ -679,9 +692,26 @@ export const tsCloud: TsCloudConfig = {
       root: '.',
       path: '/',
       domain: env.APP_DOMAIN || 'bughq.org',
-      start: 'bun storage/framework/core/buddy/src/cli.ts serve',
-      port: 3000,
+      // `./buddy serve` resolves the framework CLI from node_modules
+      // (@stacksjs/buddy) — no vendored storage/framework/core needed. Port
+      // 3022 is bughq's slot on the shared box (localhost-only; rpx fronts it).
+      start: './buddy serve',
+      port: 3022,
       preStart: ['bun install'],
+      env: {
+        APP_URL: 'https://bughq.org',
+        API_URL: 'http://127.0.0.1:3023',
+      },
+    },
+
+    // Loopback API (bun-router); the :3022 serve proxies /api + non-GET to it.
+    // No domain ⇒ rpx skips it; the firewall keeps :3023 off the public net.
+    'bughq-api': {
+      root: '.',
+      start: './buddy serve:api',
+      port: 3023,
+      preStart: ['bun install'],
+      env: { HOST: '127.0.0.1' },
     },
 
     // www → apex redirect.

@@ -1,0 +1,83 @@
+name: Deploy
+
+# Push-to-deploy, branch → environment. This app ATTACHES to the shared box
+# owned by the `stacks` project (config/cloud.ts sets `cloud.attachTo: 'stacks'`),
+# so it never provisions — it ships only its own site onto the existing box.
+#   main  → production   (bare apex domain)
+#   stage → staging      (staging.<domain>)
+#   dev   → development  (dev.<domain>)
+on:
+  push:
+    branches: [main, stage, dev]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to deploy
+        type: choice
+        options: [production, staging, development]
+        default: staging
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  determine-environment:
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.map.outputs.environment }}
+      flag: ${{ steps.map.outputs.flag }}
+    steps:
+      - id: map
+        run: |
+          case "${{ github.event.inputs.environment || github.ref_name }}" in
+            production|main)  echo "environment=production"  >> "$GITHUB_OUTPUT"; echo "flag=--prod"    >> "$GITHUB_OUTPUT" ;;
+            staging|stage)    echo "environment=staging"     >> "$GITHUB_OUTPUT"; echo "flag=--staging" >> "$GITHUB_OUTPUT" ;;
+            development|dev)  echo "environment=development" >> "$GITHUB_OUTPUT"; echo "flag=--dev"     >> "$GITHUB_OUTPUT" ;;
+            *) echo "No environment mapped for ${{ github.ref_name }}"; exit 1 ;;
+          esac
+
+  deploy:
+    needs: determine-environment
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ needs.determine-environment.outputs.environment }}
+    permissions:
+      contents: read
+      deployments: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      # Attach deploys over SSH to the shared box (same DEPLOY_SSH_KEY authorized
+      # on the box). Derive the .pub from the private key so one secret suffices.
+      - name: Add deploy SSH key
+        run: |
+          if [ -n "${{ secrets.DEPLOY_SSH_KEY }}" ]; then
+            mkdir -p ~/.ssh && chmod 700 ~/.ssh
+            printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+            chmod 600 ~/.ssh/id_ed25519
+            ssh-keygen -y -f ~/.ssh/id_ed25519 > ~/.ssh/id_ed25519.pub
+            chmod 644 ~/.ssh/id_ed25519.pub
+          fi
+
+      - name: Deploy (${{ needs.determine-environment.outputs.environment }})
+        run: ./buddy deploy ${{ needs.determine-environment.outputs.flag }} --yes
+        env:
+          APP_ENV: ${{ needs.determine-environment.outputs.environment }}
+          # Decrypt this app's own .env.<environment>.
+          DOTENV_PRIVATE_KEY_PRODUCTION: ${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}
+          DOTENV_PRIVATE_KEY_STAGING: ${{ secrets.DOTENV_PRIVATE_KEY_STAGING }}
+          DOTENV_PRIVATE_KEY_DEVELOPMENT: ${{ secrets.DOTENV_PRIVATE_KEY_DEVELOPMENT }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Resolve the shared box + write this domain's DNS record.
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+          PORKBUN_API_KEY: ${{ secrets.PORKBUN_API_KEY }}
+          PORKBUN_SECRET_KEY: ${{ secrets.PORKBUN_SECRET_KEY }}
+          COPYFILE_DISABLE: '1'
