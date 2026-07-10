@@ -708,7 +708,7 @@ export const tsCloud: TsCloudConfig = {
     // No domain ⇒ rpx skips it; the firewall keeps :3023 off the public net.
     'bughq-api': {
       root: '.',
-      start: 'bun node_modules/@stacksjs/actions/dist/src/serve/api.js',
+      start: 'bun node_modules/@stacksjs/actions/dist/serve/api.js',
       port: 3023,
       preStart: ['bun install'],
       env: { HOST: '127.0.0.1' },
