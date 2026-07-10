@@ -68,7 +68,13 @@ jobs:
           fi
 
       - name: Deploy (${{ needs.determine-environment.outputs.environment }})
-        run: ./buddy deploy ${{ needs.determine-environment.outputs.flag }} --yes
+        # Invoke the buddy CLI from node_modules directly rather than via the
+        # ./buddy wrapper. The wrapper is built for the vendored/pantry layout
+        # (it resolves a project-local pantry bun + NODE_PATH); a node_modules
+        # app has neither, and on a fresh CI checkout the wrapper exited 1
+        # before ever reaching bun. This is the same entrypoint the site
+        # `start` commands use.
+        run: bun node_modules/@stacksjs/buddy/dist/cli.js deploy ${{ needs.determine-environment.outputs.flag }} --yes
         env:
           APP_ENV: ${{ needs.determine-environment.outputs.environment }}
           # Decrypt this app's own .env.<environment>.
