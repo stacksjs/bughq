@@ -265,6 +265,7 @@ route.post('/issue/{issueId}/status', async (request: any) => {
 
 route.get('/sdk.js', (request: any) => {
   const origin = new URL(request.url).origin
+  // eslint-disable pickier/no-unused-vars -- the string below is the browser SDK source (a template literal), not real declarations; pickier's token scan misreads its `var`/`function` tokens.
   const script = `(function(){
   var s=document.currentScript,project=s&&s.getAttribute('data-project'),key=s&&s.getAttribute('data-key');
   if(!project||!key)return;
