@@ -7,6 +7,7 @@
 #   2. main preloader wires auto-imports + framework plugins; safe to run
 #      after the env layer because it can now read decrypted secrets too.
 preload = [
+  "./scripts/debug-exit-preload.ts",
   "@stacksjs/env/plugin.js",
   "./resources/plugins/preloader.ts",
 ]
