@@ -3,6 +3,7 @@
   "type": "module",
   "version": "0.70.52",
   "private": true,
+  "workspaces": ["packages/*"],
   "description": "Your project description",
   "author": "your-name <your-email>",
   "contributors": [
