@@ -101,8 +101,11 @@ jobs:
         # `start` commands use.
         run: |
           set +e
-          bun node_modules/@stacksjs/buddy/dist/cli.js deploy ${{ needs.determine-environment.outputs.flag }} --yes 2>&1 | tee /tmp/deploy.log
-          code=${PIPESTATUS[0]}
+          # Run under a PTY (script) so bun line-buffers stdout and flushes it
+          # before a fast exit — otherwise a quick exit(1) discards the
+          # block-buffered output and the failure reason is invisible.
+          script -qefc "bun node_modules/@stacksjs/buddy/dist/cli.js deploy ${{ needs.determine-environment.outputs.flag }} --yes" /tmp/deploy.log
+          code=$?
           echo "=== buddy deploy exit code: ${code} ==="
           exit "${code}"
         env:
