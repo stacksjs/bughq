@@ -83,9 +83,44 @@ catch {
   live = false
 }
 
-const ingestSnippet = activeProject
-  ? `<script src="${origin}/sdk.js"\n        data-project="${activeProject.id}"\n        data-key="${activeProject.ingest_key}"><\/script>`
-  : ''
+// Framework-specific install instructions, keyed off the project's platform.
+function installGuide(platform, project, key, host) {
+  const p = String(platform || 'javascript').toLowerCase()
+  const scriptTag = `<script src="${host || 'https://bughq.org'}/sdk.js"\n        data-project="${project}"\n        data-key="${key}"><\/script>`
+  if (p === 'vue') {
+    return {
+      label: 'Vue',
+      install: 'bun add @bughq/vue',
+      code: `import BugHQ from '@bughq/vue'\n\napp.use(BugHQ, {\n  project: '${project}',\n  key: '${key}',\n})`,
+    }
+  }
+  if (p === 'nuxt') {
+    return {
+      label: 'Nuxt',
+      install: 'bun add @bughq/nuxt',
+      code: `// nuxt.config.ts\nexport default defineNuxtConfig({\n  modules: ['@bughq/nuxt'],\n  bughq: { project: '${project}', key: '${key}' },\n})`,
+    }
+  }
+  if (p === 'node') {
+    return {
+      label: 'Node.js',
+      install: 'bun add @bughq/sdk',
+      code: `import { bughq } from '@bughq/sdk'\n\nbughq.init({\n  project: '${project}',\n  key: '${key}',\n})`,
+    }
+  }
+  if (p === 'react') {
+    return {
+      label: 'React',
+      install: 'bun add @bughq/sdk',
+      code: `import { bughq } from '@bughq/sdk'\n\nbughq.init({ project: '${project}', key: '${key}' })\n// then capture render errors from an ErrorBoundary`,
+    }
+  }
+  // javascript / browser / other — drop-in script tag
+  return { label: 'HTML', install: '', code: scriptTag }
+}
+const guide = activeProject
+  ? installGuide(activeProject.platform, activeProject.id, activeProject.ingest_key, origin)
+  : null
 
 // Severity drives the one accent-adjacent semantic color used on the list rail.
 // These are real state colors, not decoration.
@@ -197,9 +232,15 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
 
     @if (live && counts.events === 0)
       <div class="panel px-5 py-5 mb-8 reveal">
-        <div class="text-sm font-semibold mb-1">Install bughq in {{ activeProject.name }}</div>
-        <p class="text-sm mb-3.5" style="color: var(--text-3)">Add this snippet to your app to start capturing errors. They group into issues here automatically.</p>
-        <div class="mono text-xs px-4 py-3.5 rounded-lg" style="background: var(--bg); border: 1px solid var(--border); color: var(--text-2); white-space: pre; overflow-x: auto">{{ ingestSnippet }}</div>
+        <div class="flex items-center justify-between mb-1">
+          <div class="text-sm font-semibold">Install bughq in {{ activeProject.name }}</div>
+          <span class="mono text-[11px] px-2 py-0.5 rounded-full" style="border: 1px solid var(--border); color: var(--text-3)">{{ guide.label }}</span>
+        </div>
+        <p class="text-sm mb-3.5" style="color: var(--text-3)">Wire this into your app to start capturing errors. They group into issues here automatically.</p>
+        @if (guide.install)
+          <div class="mono text-xs px-4 py-2.5 rounded-lg mb-2" style="background: var(--bg); border: 1px solid var(--border); color: var(--text-2); overflow-x: auto">{{ guide.install }}</div>
+        @endif
+        <div class="mono text-xs px-4 py-3.5 rounded-lg" style="background: var(--bg); border: 1px solid var(--border); color: var(--text-2); white-space: pre; overflow-x: auto">{{ guide.code }}</div>
       </div>
     @endif
 

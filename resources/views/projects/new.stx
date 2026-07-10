@@ -115,6 +115,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
           <option value="node">Node.js</option>
           <option value="react">React</option>
           <option value="vue">Vue</option>
+          <option value="nuxt">Nuxt</option>
           <option value="other">Other</option>
         </select>
       </div>
