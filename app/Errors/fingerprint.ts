@@ -37,6 +37,16 @@ export function fingerprint(errorType: string, message: string, stack?: string):
   return createHash('sha256').update(basis).digest('hex').slice(0, 32)
 }
 
+/**
+ * Group key from a client-supplied override (`event.fingerprint`). Lets an SDK
+ * force related errors into one issue (or split one apart) regardless of the
+ * derived type/message/frame. Parts are joined stably before hashing.
+ */
+export function fingerprintFromParts(parts: string[]): string {
+  const basis = parts.map(p => String(p ?? '').trim()).filter(Boolean).join('|')
+  return createHash('sha256').update(basis || 'default').digest('hex').slice(0, 32)
+}
+
 /** Human-friendly issue title: "TypeError: cannot read property …". */
 export function issueTitle(errorType: string, message: string): string {
   const type = errorType || 'Error'

@@ -10,8 +10,33 @@
 import { Auth } from '@stacksjs/auth'
 import { db } from '@stacksjs/database'
 import { response, route } from '@stacksjs/router'
-import { categorize, culprit, fingerprint, issueTitle, randomId } from '../app/Errors/fingerprint'
+import { categorize, culprit, fingerprint, fingerprintFromParts, issueTitle, randomId } from '../app/Errors/fingerprint'
 import { authorizeIngest } from '../app/Errors/ingest'
+
+/**
+ * Bundle the SDK's rich fields into a single JSON blob stored in
+ * `error_events.metadata` (widened to hold it, migration 0129). Keeps a flat,
+ * predictable shape the issue-detail page can destructure, and stays null when
+ * a bare/legacy client sends nothing extra.
+ */
+function buildMetadata(body: any): string | null {
+  const meta: Record<string, unknown> = {}
+  if (body.extra && typeof body.extra === 'object')
+    meta.extra = body.extra
+  if (body.tags && typeof body.tags === 'object')
+    meta.tags = body.tags
+  if (body.contexts && typeof body.contexts === 'object')
+    meta.contexts = body.contexts
+  if (Array.isArray(body.breadcrumbs) && body.breadcrumbs.length)
+    meta.breadcrumbs = body.breadcrumbs
+  if (body.sdk && typeof body.sdk === 'object')
+    meta.sdk = body.sdk
+  if (body.session && typeof body.session === 'object')
+    meta.session = body.session
+  if (body.timestamp)
+    meta.client_timestamp = body.timestamp
+  return Object.keys(meta).length ? JSON.stringify(meta) : null
+}
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -91,7 +116,12 @@ route.post('/errors', async (request: any) => {
   const errorType = body.type ?? body.error_type ?? 'Error'
   const message = String(body.message)
   const stack = body.stack ? String(body.stack) : undefined
-  const fp = fingerprint(errorType, message, stack)
+  // A client may force grouping with an explicit `fingerprint` array; otherwise
+  // we derive one from type + normalized message + top stack frame.
+  const fpOverride = Array.isArray(body.fingerprint) && body.fingerprint.length
+    ? body.fingerprint.map((p: unknown) => String(p))
+    : null
+  const fp = fpOverride ? fingerprintFromParts(fpOverride) : fingerprint(errorType, message, stack)
 
   // Roll the occurrence into its Issue: bump an existing group (reopening it if
   // it was resolved — a regression), or open a new one. Reads go through
@@ -146,7 +176,7 @@ route.post('/errors', async (request: any) => {
     release: body.release ?? null,
     environment: body.environment ?? 'production',
     user_context: body.user ? JSON.stringify(body.user) : null,
-    metadata: body.extra ? JSON.stringify(body.extra) : null,
+    metadata: buildMetadata(body),
     timestamp: now,
   }).execute()
 
@@ -238,11 +268,14 @@ route.get('/sdk.js', (request: any) => {
   const script = `(function(){
   var s=document.currentScript,project=s&&s.getAttribute('data-project'),key=s&&s.getAttribute('data-key');
   if(!project||!key)return;
+  var release=s&&s.getAttribute('data-release'),env=s&&s.getAttribute('data-environment'),fw=s&&s.getAttribute('data-framework');
   function report(err,extra){try{
     var e=err&&err.error?err.error:err;
     fetch('${origin}/errors',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json','X-BugHQ-Key':key},
       body:JSON.stringify({project:project,type:(e&&e.name)||'Error',message:(e&&e.message)||String(e),
-        stack:e&&e.stack,url:location.href,extra:extra||null})});
+        stack:e&&e.stack,url:location.href,release:release||undefined,environment:env||undefined,
+        framework:fw||'script',timestamp:new Date().toISOString(),
+        sdk:{name:'bughq.js.loader',version:'0.2.0'},extra:extra||null})});
   }catch(_){}}
   window.addEventListener('error',function(ev){report(ev)});
   window.addEventListener('unhandledrejection',function(ev){report(ev.reason||ev)});
