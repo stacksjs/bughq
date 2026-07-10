@@ -1,0 +1,12 @@
+<script server>
+// bughq client tracking partial for stx / Stacks apps. Copy into your
+// resources/ and include it in a layout (e.g. before </body>). Reads the
+// project id + public ingest key from env; swap for your own config source.
+const project = (typeof process !== 'undefined' && process.env.BUGHQ_PROJECT) || ''
+const key = (typeof process !== 'undefined' && process.env.BUGHQ_KEY) || ''
+const host = ((typeof process !== 'undefined' && process.env.BUGHQ_HOST) || 'https://bughq.org').replace(/\/+$/, '')
+</script>
+
+@if (project && key)
+  <script src="{{ host }}/sdk.js" data-project="{{ project }}" data-key="{{ key }}"></script>
+@endif
