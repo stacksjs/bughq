@@ -28,7 +28,7 @@
   },
   "dependencies": {
     "@bughq/sdk": "workspace:*",
-    "@nuxt/kit": "^3.14.0"
+    "@nuxt/kit": "^4.4.8"
   },
   "peerDependencies": {
     "nuxt": "^3.0.0 || ^4.0.0"
