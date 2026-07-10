@@ -1,36 +1,66 @@
 <script server>
 // bughq issue detail. Reads one Issue + its recent ErrorEvents from Postgres
-// via db.unsafe (parameterized, schema-independent), raced against a short
-// timeout so the page always renders even before a database is provisioned.
-// Served at `/issue/{id}` — the `[id]` path segment is injected as the global
-// `id` (the framework's dynamic-route convention, see orders/[id].stx).
+// via db.unsafe (parameterized, schema-independent). Served at `/issue/{id}`.
+//
+// IMPORTANT: the request context (`requestContext.cookie` / `.url`) rides an
+// AsyncLocalStorage that only resolves correctly AFTER the first top-level
+// `await` — read synchronously at the very top it comes back empty. So we do
+// `await import(db)` first and only then touch requestContext, mirroring the
+// dashboard. The `[id]` path segment is NOT injected as a global here, so the
+// issue id is parsed out of `requestContext.url()`.
 const meta = { title: 'bughq - Issue', description: 'Error tracking' }
 
-const issueId = (typeof id !== 'undefined' && id) || ''
+const { db } = await import('@stacksjs/database')
+
+// Resolve the issue id from the request URL (path `/issue/<id>`), falling back
+// to an injected `id` global if a future framework provides one.
+// The `[id]` path segment isn't injected as a global here, so resolve the id
+// from whatever request signal the framework exposes: the request URL path, the
+// query string (`?i=<id>`, stashed on __stxServeSearch), or an `id` global.
+let issueId = ''
+try {
+  const u = (typeof requestContext !== 'undefined' && requestContext.url && requestContext.url()) || ''
+  if (u) {
+    const seg = new URL(u).pathname.split('/').filter(Boolean)
+    const i = seg.indexOf('issue')
+    if (i !== -1 && seg[i + 1])
+      issueId = decodeURIComponent(seg[i + 1])
+  }
+}
+catch {
+  issueId = ''
+}
+if (!issueId) {
+  try {
+    const search = (typeof globalThis !== 'undefined' && globalThis.__stxServeSearch) || ''
+    issueId = new URLSearchParams(search).get('i') || ''
+  }
+  catch {
+    issueId = ''
+  }
+}
+if (!issueId && typeof id !== 'undefined' && id)
+  issueId = String(id)
+
+// Authenticate + owner-scope: an issue is only visible to the owner of the
+// project it belongs to, so no tenant can read another's issue by id.
+const token = (typeof requestContext !== 'undefined' && requestContext.cookie && requestContext.cookie('token')) || ''
+let user = null
+if (token) {
+  try {
+    const { Auth } = await import('@stacksjs/auth')
+    user = await Auth.getUserFromToken(token)
+  }
+  catch { user = null }
+}
 
 let issue = null
 let events = []
 let live = false
 
 async function loadData() {
-  if (!issueId)
+  if (!issueId || !user)
     return
-  const { db } = await import('@stacksjs/database')
-  // Authenticate + owner-scope: an issue is only visible to the owner of the
-  // project it belongs to, so no tenant can read another's issue by id.
-  const token = (typeof requestContext !== 'undefined' && requestContext.cookie && requestContext.cookie('token')) || ''
-  let user = null
-  if (token) {
-    try {
-      const { Auth } = await import('@stacksjs/auth')
-      user = await Auth.getUserFromToken(token)
-    }
-    catch { user = null }
-  }
-  if (!user) {
-    live = true
-    return
-  }
   issue = (await db.unsafe(
     `SELECT i.* FROM issues i JOIN projects p ON p.id = i.project_id
      WHERE i.id = $1 AND p.owner_id = $2 LIMIT 1`,
@@ -46,7 +76,8 @@ async function loadData() {
 }
 
 try {
-  await Promise.race([loadData(), new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 1500))])
+  await Promise.race([loadData(), new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 5000))])
+  live = true
 }
 catch {
   live = false
@@ -87,6 +118,31 @@ const status = issue?.status || 'unresolved'
 const isResolved = status === 'resolved'
 const isIgnored = status === 'ignored'
 
+// The ingest bundles the SDK's rich payload into `metadata`
+// ({ extra, tags, contexts, breadcrumbs, sdk, session }). Older events stored
+// the bare `extra` object, so detect the bundle shape and fall back gracefully.
+const userCtx = latest ? parseJson(latest.user_context) : null
+const rawMeta = latest ? parseJson(latest.metadata) : null
+const BUNDLE_KEYS = ['extra', 'tags', 'contexts', 'breadcrumbs', 'sdk', 'session', 'client_timestamp']
+const isBundle = !!(rawMeta && typeof rawMeta === 'object' && !Array.isArray(rawMeta) && BUNDLE_KEYS.some(k => k in rawMeta))
+const extra = isBundle ? (rawMeta.extra || null) : rawMeta
+const tags = isBundle && rawMeta.tags && typeof rawMeta.tags === 'object' ? rawMeta.tags : null
+const contexts = isBundle && rawMeta.contexts && typeof rawMeta.contexts === 'object' ? rawMeta.contexts : null
+const breadcrumbs = isBundle && Array.isArray(rawMeta.breadcrumbs) ? rawMeta.breadcrumbs : []
+const sdkInfo = isBundle && rawMeta.sdk && typeof rawMeta.sdk === 'object' ? rawMeta.sdk : null
+
+const tagList = tags ? Object.keys(tags).map(k => ({ key: k, value: String(tags[k]) })) : []
+const contextList = contexts ? Object.keys(contexts).map(k => ({ name: k, value: contexts[k] })) : []
+
+function bcTime(ts) {
+  if (!ts) return ''
+  const d = new Date(ts)
+  return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(11, 19)
+}
+function bcLabel(b) {
+  return (b && (b.category || b.type)) || 'event'
+}
+
 const metaRows = issue ? [
   { label: 'Culprit', value: issue.culprit || '-', mono: true },
   { label: 'Type', value: issue.error_type || 'Error' },
@@ -95,11 +151,11 @@ const metaRows = issue ? [
   { label: 'Users affected', value: Number(issue.users_affected || 0).toLocaleString() },
   { label: 'First seen', value: fmtDate(issue.first_seen) },
   { label: 'Last seen', value: fmtDate(issue.last_seen) },
+  ...(latest?.framework ? [{ label: 'Framework', value: latest.framework }] : []),
+  ...(sdkInfo?.name ? [{ label: 'SDK', value: `${sdkInfo.name}${sdkInfo.version ? ` ${sdkInfo.version}` : ''}`, mono: true }] : []),
 ] : []
-
-const userCtx = latest ? parseJson(latest.user_context) : null
-const extra = latest ? parseJson(latest.metadata) : null
 </script>
+
 
 <style>
 :root { --bg:#f8fafc; --panel:rgba(255,255,255,0.72); --border:rgba(15,23,42,0.08); --text:#0f172a; --text-2:#475569; --text-3:#94a3b8; --accent:#e11d48; --code:rgba(15,23,42,0.04); }
@@ -174,6 +230,17 @@ body { background: var(--bg); color: var(--text); font-family: ui-sans-serif, sy
         @endforeach
       </div>
 
+      @if (tagList.length)
+        <div class="flex flex-wrap gap-2 mb-6">
+          @foreach (tagList as t)
+            <span class="glass rounded-lg px-2.5 py-1 text-xs font-mono">
+              <span style="color: var(--text-3)">{{ t.key }}</span>
+              <span style="color: var(--text-2)">{{ t.value }}</span>
+            </span>
+          @endforeach
+        </div>
+      @endif
+
       @if (stack)
         <div class="glass rounded-xl overflow-hidden mb-6">
           <div class="px-5 py-3 border-b text-sm font-semibold uppercase tracking-wider" style="color: var(--text-3); border-color: var(--border)">Stack trace</div>
@@ -181,7 +248,21 @@ body { background: var(--bg); color: var(--text); font-family: ui-sans-serif, sy
         </div>
       @endif
 
-      @if (userCtx || extra)
+      @if (breadcrumbs.length)
+        <div class="glass rounded-xl overflow-hidden mb-6">
+          <div class="px-5 py-3 border-b text-sm font-semibold uppercase tracking-wider" style="color: var(--text-3); border-color: var(--border)">Breadcrumbs ({{ breadcrumbs.length }})</div>
+          @foreach (breadcrumbs as b)
+            <div class="flex items-start gap-3 px-5 py-2 border-b text-xs" style="border-color: var(--border)">
+              <span class="w-2 h-2 mt-1 rounded-full shrink-0" style="background: {{ levelColor(b.level) }}"></span>
+              <span class="font-mono shrink-0" style="color: var(--text-3); min-width: 6.5rem">{{ bcLabel(b) }}</span>
+              <span class="flex-1 min-w-0 break-words font-mono" style="color: var(--text-2)">{{ (b.message || '') + (b.data ? '  ' + JSON.stringify(b.data) : '') }}</span>
+              <span class="tabular-nums shrink-0" style="color: var(--text-3)">{{ bcTime(b.timestamp) }}</span>
+            </div>
+          @endforeach
+        </div>
+      @endif
+
+      @if (userCtx || extra || contextList.length)
         <div class="grid gap-4 mb-6" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr))">
           @if (userCtx)
             <div class="glass rounded-xl overflow-hidden">
@@ -189,9 +270,15 @@ body { background: var(--bg); color: var(--text); font-family: ui-sans-serif, sy
               <div class="trace text-xs leading-relaxed px-5 py-4" style="color: var(--text-2)">{{ JSON.stringify(userCtx, null, 2) }}</div>
             </div>
           @endif
+          @foreach (contextList as ctx)
+            <div class="glass rounded-xl overflow-hidden">
+              <div class="px-5 py-3 border-b text-sm font-semibold uppercase tracking-wider" style="color: var(--text-3); border-color: var(--border)">{{ ctx.name }}</div>
+              <div class="trace text-xs leading-relaxed px-5 py-4" style="color: var(--text-2)">{{ JSON.stringify(ctx.value, null, 2) }}</div>
+            </div>
+          @endforeach
           @if (extra)
             <div class="glass rounded-xl overflow-hidden">
-              <div class="px-5 py-3 border-b text-sm font-semibold uppercase tracking-wider" style="color: var(--text-3); border-color: var(--border)">Context</div>
+              <div class="px-5 py-3 border-b text-sm font-semibold uppercase tracking-wider" style="color: var(--text-3); border-color: var(--border)">Extra data</div>
               <div class="trace text-xs leading-relaxed px-5 py-4" style="color: var(--text-2)">{{ JSON.stringify(extra, null, 2) }}</div>
             </div>
           @endif
