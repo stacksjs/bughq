@@ -12,11 +12,9 @@ const meta = { title: 'bughq - Issue', description: 'Error tracking' }
 
 const { db } = await import('@stacksjs/database')
 
-// Resolve the issue id from the request URL (path `/issue/<id>`), falling back
-// to an injected `id` global if a future framework provides one.
-// The `[id]` path segment isn't injected as a global here, so resolve the id
-// from whatever request signal the framework exposes: the request URL path, the
-// query string (`?i=<id>`, stashed on __stxServeSearch), or an `id` global.
+// Resolve the issue id from whatever request signal the framework exposes: the
+// request URL path, the query string (`?i=<id>`, on __stxServeSearch), or an
+// injected `id` global.
 let issueId = ''
 try {
   const u = (typeof requestContext !== 'undefined' && requestContext.url && requestContext.url()) || ''
@@ -87,11 +85,16 @@ const projectId = issue?.project_id || 'demo'
 const latest = events[0] || null
 const stack = latest?.stack || ''
 
+// --- formatting helpers ----------------------------------------------------
 function levelColor(level) {
-  if (level === 'fatal') return '#ef4444'
-  if (level === 'error') return '#f97316'
-  if (level === 'warning') return '#eab308'
-  return '#64748b'
+  switch (level) {
+    case 'fatal': return '#ef4444'
+    case 'error': return '#f87171'
+    case 'warning': return '#f59e0b'
+    case 'info': return '#38bdf8'
+    case 'debug': return '#a78bfa'
+    default: return '#94a3b8'
+  }
 }
 function fromNow(iso) {
   if (!iso) return '-'
@@ -118,9 +121,87 @@ const status = issue?.status || 'unresolved'
 const isResolved = status === 'resolved'
 const isIgnored = status === 'ignored'
 
-// The ingest bundles the SDK's rich payload into `metadata`
-// ({ extra, tags, contexts, breadcrumbs, sdk, session }). Older events stored
-// the bare `extra` object, so detect the bundle shape and fall back gracefully.
+// --- stack trace parsing (the centerpiece) ---------------------------------
+// Turns the stored stack STRING into structured exceptions + frames so the UI
+// can render Sentry-style: app frames highlighted, vendor frames collapsed,
+// `Caused by:` chains as their own sections. Handles both the JS shape
+// (`at fn (url:line:col)`) and the PHP shape (`at fn (file:line)`).
+// Vendor/system = third-party code the app author can't fix. `webpack-internal`
+// / `webpack://` are the bundler's representation of the app's OWN source, so
+// they are app frames unless the path itself is under node_modules.
+function isVendor(file) {
+  return /node_modules|node:internal|[\\/]vendor[\\/]|\.pantry[\\/]|[\\/]\.next[\\/]server/i.test(String(file || ''))
+}
+function shortPath(file) {
+  if (!file) return { base: '', dir: '' }
+  const clean = String(file).replace(/[?#].*$/, '')
+  const idx = Math.max(clean.lastIndexOf('/'), clean.lastIndexOf('\\'))
+  const base = idx >= 0 ? clean.slice(idx + 1) : clean
+  const dir = idx >= 0 ? clean.slice(0, idx + 1) : ''
+  return { base: base || clean, dir }
+}
+function cleanFile(file) {
+  return String(file).replace(/^webpack-internal:\/\/\//, '').replace(/^webpack:\/\/\/?(_N_E\/)?/, '').replace(/^\.\//, '')
+}
+function parseLocation(loc) {
+  const m = String(loc).match(/^(.*?):(\d+)(?::(\d+))?$/)
+  if (m) return { file: m[1], line: m[2], col: m[3] || null }
+  return { file: String(loc), line: null, col: null }
+}
+function makeFrame(func, loc) {
+  const { file, line, col } = parseLocation(loc)
+  const { base, dir } = shortPath(cleanFile(file))
+  const cleanFunc = String(func || '').replace(/^\{|\}$/g, '').trim() || '<anonymous>'
+  return { func: cleanFunc, base, dir, line, col, isApp: !!file && !isVendor(file) }
+}
+function parseStack(stackStr, fbType, fbMsg) {
+  const groups = []
+  let cur = null
+  const pushHeader = (text, isCause) => {
+    const idx = text.indexOf(': ')
+    const type = idx === -1 ? text.trim() : text.slice(0, idx).trim()
+    const message = idx === -1 ? '' : text.slice(idx + 2).trim()
+    cur = { type: type || (fbType || 'Error'), message, isCause, frames: [] }
+    groups.push(cur)
+  }
+  const ensure = () => { if (!cur) pushHeader(`${fbType || 'Error'}: ${fbMsg || ''}`, false) }
+  for (const raw of String(stackStr || '').split('\n')) {
+    const line = raw.replace(/\s+$/, '')
+    if (!line.trim()) continue
+    const cause = line.match(/^Caused by:\s*(.*)$/i)
+    if (cause) { pushHeader(cause[1], true); continue }
+    const atParen = line.match(/^\s*at\s+(.*?)\s+\((.+)\)\s*$/)
+    if (atParen) { ensure(); cur.frames.push(makeFrame(atParen[1], atParen[2])); continue }
+    const atBare = line.match(/^\s*at\s+(.+?)\s*$/)
+    if (atBare) { ensure(); cur.frames.push(makeFrame('', atBare[1])); continue }
+    const ffox = line.match(/^\s*(.+?)@(.+?)\s*$/)
+    if (ffox && cur) { cur.frames.push(makeFrame(ffox[1], ffox[2])); continue }
+    if (!cur) pushHeader(line.trim(), false)
+    else if (cur.frames.length === 0) cur.message = (cur.message ? `${cur.message} ` : '') + line.trim()
+  }
+  // Group consecutive vendor frames so they collapse into one expander.
+  for (const g of groups) {
+    const segs = []
+    for (const fr of g.frames) {
+      if (fr.isApp) {
+        segs.push({ kind: 'app', frame: fr, frames: [] })
+      }
+      else {
+        const last = segs[segs.length - 1]
+        if (last && last.kind === 'system') last.frames.push(fr)
+        else segs.push({ kind: 'system', frame: null, frames: [fr] })
+      }
+    }
+    g.segments = segs
+    g.appCount = g.frames.filter(f => f.isApp).length
+    g.systemCount = g.frames.length - g.appCount
+  }
+  if (groups[0] && groups[0].frames[0]) groups[0].frames[0].isCrash = true
+  return groups
+}
+const exceptions = stack ? parseStack(stack, issue?.error_type, latest?.message || issue?.title) : []
+
+// --- rich metadata bundle --------------------------------------------------
 const userCtx = latest ? parseJson(latest.user_context) : null
 const rawMeta = latest ? parseJson(latest.metadata) : null
 const BUNDLE_KEYS = ['extra', 'tags', 'contexts', 'breadcrumbs', 'sdk', 'session', 'client_timestamp']
@@ -132,178 +213,425 @@ const breadcrumbs = isBundle && Array.isArray(rawMeta.breadcrumbs) ? rawMeta.bre
 const sdkInfo = isBundle && rawMeta.sdk && typeof rawMeta.sdk === 'object' ? rawMeta.sdk : null
 
 const tagList = tags ? Object.keys(tags).map(k => ({ key: k, value: String(tags[k]) })) : []
-const contextList = contexts ? Object.keys(contexts).map(k => ({ name: k, value: contexts[k] })) : []
+const contextList = contexts ? Object.keys(contexts).map(k => ({ name: k, rows: kvRows(contexts[k]) })) : []
+const userRows = userCtx ? kvRows(userCtx) : []
 
+function kvRows(obj) {
+  if (!obj || typeof obj !== 'object') return []
+  return Object.keys(obj).map((k) => {
+    let v = obj[k]
+    if (v === null || v === undefined) v = '—'
+    else if (typeof v === 'object') v = JSON.stringify(v)
+    else v = String(v)
+    return { k, v }
+  })
+}
+
+// --- breadcrumb classification (icon + tint per source) --------------------
+function bcKind(b) {
+  const c = String((b && (b.category || b.type)) || '').toLowerCase()
+  if (/fetch|xhr|http|request|response/.test(c)) return 'http'
+  if (/nav/.test(c)) return 'nav'
+  if (/click|ui|dom|tap|input/.test(c)) return 'ui'
+  if (/console|log/.test(c)) return 'console'
+  if (/sql|query|db|database/.test(c)) return 'query'
+  if (/error|exception|fatal|fail/.test(c)) return 'error'
+  return 'default'
+}
+function bcTint(kind) {
+  switch (kind) {
+    case 'http': return '#38bdf8'
+    case 'nav': return '#a78bfa'
+    case 'ui': return '#22c55e'
+    case 'console': return '#94a3b8'
+    case 'query': return '#f59e0b'
+    case 'error': return '#f87171'
+    default: return '#64748b'
+  }
+}
+// Small inline icons keyed by kind (safe: rendered from this fixed map only).
+const BC_ICONS = {
+  http: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 2.5 15.4 0 18M12 3c-2.5 2.6-2.5 15.4 0 18"/></svg>',
+  nav: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  ui: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l6 18 2.5-7L21 11z"/></svg>',
+  console: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8l4 4-4 4M12 16h7"/></svg>',
+  query: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6M5 12c0 1.7 3.1 3 7 3s7-1.3 7-3"/></svg>',
+  error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l9 16H3z"/><path d="M12 10v4M12 17h.01"/></svg>',
+  default: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="4"/></svg>',
+}
 function bcTime(ts) {
   if (!ts) return ''
   const d = new Date(ts)
-  return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(11, 19)
+  return Number.isNaN(d.getTime()) ? '' : d.toISOString().slice(11, 23).replace('.', '.')
 }
 function bcLabel(b) {
   return (b && (b.category || b.type)) || 'event'
 }
+function bcText(b) {
+  const msg = b && b.message ? String(b.message) : ''
+  const data = b && b.data ? JSON.stringify(b.data) : ''
+  if (msg && data) return `${msg}  ${data}`
+  return msg || data || ''
+}
+const crumbs = (breadcrumbs || []).map(b => ({
+  kind: bcKind(b),
+  label: bcLabel(b),
+  text: bcText(b),
+  level: b.level || 'info',
+  time: bcTime(b.timestamp),
+}))
 
-const metaRows = issue ? [
-  { label: 'Culprit', value: issue.culprit || '-', mono: true },
-  { label: 'Type', value: issue.error_type || 'Error' },
-  { label: 'Level', value: issue.level || 'error' },
-  { label: 'Events', value: Number(issue.count || 0).toLocaleString() },
-  { label: 'Users affected', value: Number(issue.users_affected || 0).toLocaleString() },
-  { label: 'First seen', value: fmtDate(issue.first_seen) },
-  { label: 'Last seen', value: fmtDate(issue.last_seen) },
+// --- sidebar meta ----------------------------------------------------------
+const eventMeta = issue ? [
+  { label: 'Level', value: (issue.level || 'error'), pill: true },
+  { label: 'Environment', value: latest?.environment || 'production' },
+  ...(latest?.release ? [{ label: 'Release', value: latest.release, mono: true }] : []),
   ...(latest?.framework ? [{ label: 'Framework', value: latest.framework }] : []),
   ...(sdkInfo?.name ? [{ label: 'SDK', value: `${sdkInfo.name}${sdkInfo.version ? ` ${sdkInfo.version}` : ''}`, mono: true }] : []),
+  ...(latest?.browser ? [{ label: 'Browser', value: latest.browser }] : []),
+  ...(latest?.os ? [{ label: 'OS', value: latest.os }] : []),
 ] : []
+const statRows = issue ? [
+  { label: 'Events', value: Number(issue.count || 0).toLocaleString() },
+  { label: 'Users', value: Number(issue.users_affected || 0).toLocaleString() },
+] : []
+const lastSeenAgo = issue ? fromNow(issue.last_seen) : ''
+const firstSeenAgo = issue ? fromNow(issue.first_seen) : ''
 </script>
 
 
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap">
+
 <style>
-:root { --bg:#f8fafc; --panel:rgba(255,255,255,0.72); --border:rgba(15,23,42,0.08); --text:#0f172a; --text-2:#475569; --text-3:#94a3b8; --accent:#e11d48; --code:rgba(15,23,42,0.04); }
-@media (prefers-color-scheme: dark) { :root { --bg:#0b1120; --panel:rgba(30,41,59,0.5); --border:rgba(148,163,184,0.12); --text:#f1f5f9; --text-2:#cbd5e1; --text-3:#64748b; --accent:#fb7185; --code:rgba(2,6,23,0.5); } }
-:root[data-theme="dark"] { --bg:#0b1120; --panel:rgba(30,41,59,0.5); --border:rgba(148,163,184,0.12); --text:#f1f5f9; --text-2:#cbd5e1; --text-3:#64748b; --accent:#fb7185; --code:rgba(2,6,23,0.5); }
-:root[data-theme="light"] { --bg:#f8fafc; --panel:rgba(255,255,255,0.72); --border:rgba(15,23,42,0.08); --text:#0f172a; --text-2:#475569; --text-3:#94a3b8; --accent:#e11d48; --code:rgba(15,23,42,0.04); }
-body { background: var(--bg); color: var(--text); font-family: ui-sans-serif, system-ui, -apple-system, sans-serif; }
-.glass { background: var(--panel); border: 1px solid var(--border); backdrop-filter: blur(12px); }
-.trace { background: var(--code); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; overflow-x: auto; }
+:root {
+  --bg:#f6f7f9; --panel:#ffffff; --panel-2:#fbfcfd; --border:rgba(15,23,42,0.08); --border-2:rgba(15,23,42,0.06);
+  --text:#0b0f19; --text-2:#475569; --text-3:#8a94a6; --accent:#e11d48;
+  --code:#0f172a; --code-bg:#f8fafc; --app-tint:rgba(225,29,72,0.05); --app-bar:#e11d48;
+  --mono:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:#0a0c12; --panel:#11141d; --panel-2:#0e111a; --border:rgba(148,163,184,0.12); --border-2:rgba(148,163,184,0.08);
+    --text:#eef1f6; --text-2:#aab4c5; --text-3:#5f6b7e; --accent:#fb7185;
+    --code:#e5e9f0; --code-bg:#0b0e16; --app-tint:rgba(251,113,133,0.06); --app-bar:#fb7185;
+  }
+}
+:root[data-theme="dark"] {
+  --bg:#0a0c12; --panel:#11141d; --panel-2:#0e111a; --border:rgba(148,163,184,0.12); --border-2:rgba(148,163,184,0.08);
+  --text:#eef1f6; --text-2:#aab4c5; --text-3:#5f6b7e; --accent:#fb7185;
+  --code:#e5e9f0; --code-bg:#0b0e16; --app-tint:rgba(251,113,133,0.06); --app-bar:#fb7185;
+}
+:root[data-theme="light"] {
+  --bg:#f6f7f9; --panel:#ffffff; --panel-2:#fbfcfd; --border:rgba(15,23,42,0.08); --border-2:rgba(15,23,42,0.06);
+  --text:#0b0f19; --text-2:#475569; --text-3:#8a94a6; --accent:#e11d48;
+  --code:#0f172a; --code-bg:#f8fafc; --app-tint:rgba(225,29,72,0.05); --app-bar:#e11d48;
+}
+body { background: var(--bg); color: var(--text); font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; }
+.card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; }
+.card-head { display:flex; align-items:center; gap:.5rem; padding:.7rem 1rem; border-bottom:1px solid var(--border-2); font-size:.72rem; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--text-3); }
+.mono { font-family: var(--mono); }
+.pill { display:inline-flex; align-items:center; gap:.35rem; padding:.15rem .55rem; border-radius:999px; font-size:.7rem; font-weight:600; letter-spacing:.02em; }
+
+/* Stack trace */
+.exc + .exc { margin-top: .75rem; }
+.exc-head { padding: 1rem 1.15rem .9rem; border-bottom:1px solid var(--border-2); }
+.exc-type { font-family: var(--mono); font-weight:600; font-size:.95rem; color:var(--accent); word-break:break-word; }
+.exc-msg { margin-top:.3rem; font-size:.95rem; line-height:1.5; color:var(--text); word-break:break-word; }
+.caused { display:inline-block; margin-bottom:.5rem; font-size:.68rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text-3); }
+.frames { padding:.35rem; }
+.frame { display:flex; align-items:baseline; gap:.75rem; padding:.5rem .65rem; border-radius:8px; font-family: var(--mono); font-size:.8rem; line-height:1.45; }
+.frame + .frame { margin-top:1px; }
+.frame.is-app { background: var(--app-tint); box-shadow: inset 2px 0 0 var(--app-bar); }
+.frame.is-sys { opacity:.62; }
+.frame.is-crash { box-shadow: inset 3px 0 0 var(--accent); }
+.fr-main { min-width:0; flex:1; display:flex; align-items:baseline; gap:.4rem; flex-wrap:wrap; }
+.fr-base { color: var(--text); font-weight:600; flex-shrink:0; }
+.fr-dir { color: var(--text-3); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.fr-fn { color: var(--text-2); flex-shrink:0; }
+.fr-fn b { color: var(--text); font-weight:600; }
+.fr-loc { flex-shrink:0; color: var(--text-3); font-size:.74rem; padding:.05rem .4rem; border-radius:5px; background: var(--code-bg); }
+details.sysgroup { margin:1px 0; }
+details.sysgroup > summary { list-style:none; cursor:pointer; display:flex; align-items:center; gap:.5rem; padding:.45rem .65rem; border-radius:8px; font-size:.74rem; color:var(--text-3); font-family: var(--mono); }
+details.sysgroup > summary::-webkit-details-marker { display:none; }
+details.sysgroup > summary:hover { color: var(--text-2); background: var(--code-bg); }
+details.sysgroup > summary .chev { transition: transform .15s ease; }
+details.sysgroup[open] > summary .chev { transform: rotate(90deg); }
+
+/* Breadcrumbs */
+.crumb { display:flex; align-items:flex-start; gap:.7rem; padding:.5rem 1rem; border-top:1px solid var(--border-2); }
+.crumb:first-child { border-top:none; }
+.crumb-ic { flex-shrink:0; width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; }
+.crumb-ic svg { width:15px; height:15px; }
+.crumb-cat { flex-shrink:0; width:5.5rem; font-family:var(--mono); font-size:.72rem; color:var(--text-2); padding-top:.28rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.crumb-txt { flex:1; min-width:0; font-family:var(--mono); font-size:.75rem; color:var(--text); padding-top:.28rem; word-break:break-word; }
+.crumb-time { flex-shrink:0; font-family:var(--mono); font-size:.68rem; color:var(--text-3); padding-top:.32rem; }
+
+/* Key/value context */
+.kv { display:grid; grid-template-columns: minmax(6rem,auto) 1fr; gap:.1rem .9rem; padding:.6rem 1rem 1rem; font-size:.78rem; }
+.kv dt { color:var(--text-3); font-family:var(--mono); font-size:.72rem; padding:.2rem 0; overflow:hidden; text-overflow:ellipsis; }
+.kv dd { color:var(--text); font-family:var(--mono); word-break:break-word; padding:.2rem 0; }
+.jsonblock { font-family:var(--mono); font-size:.72rem; line-height:1.5; color:var(--text-2); white-space:pre-wrap; word-break:break-word; padding:.7rem 1rem 1rem; margin:0; }
+
+.btn { display:inline-flex; align-items:center; gap:.4rem; padding:.4rem .8rem; border-radius:9px; font-size:.8rem; font-weight:600; border:1px solid var(--border); background:var(--panel); color:var(--text-2); cursor:pointer; transition: all .12s ease; }
+.btn:hover { color:var(--text); border-color:var(--text-3); }
+.btn-primary { color:#16a34a; border-color:rgba(34,197,94,.4); }
+.copybtn { font-family:var(--mono); font-size:.68rem; }
 </style>
 
-<div class="min-h-screen px-5 py-8 md:px-10">
-  <div class="max-w-5xl mx-auto">
+<div class="min-h-screen px-4 py-6 md:px-8 md:py-8">
+  <div class="mx-auto" style="max-width: 78rem">
 
-    <a href="/dashboard" class="inline-flex items-center gap-1.5 text-sm mb-6 hover:opacity-80" style="color: var(--text-2)">
+    <a href="/dashboard" class="inline-flex items-center gap-1.5 text-sm mb-5 hover:opacity-80" style="color: var(--text-2)">
       <span>&larr;</span> Back to issues
     </a>
 
     @if (!issue)
-      <div class="glass rounded-xl px-5 py-12 text-center">
+      <div class="card px-5 py-16 text-center">
         <div class="text-4xl mb-3">🔍</div>
         <div class="font-semibold mb-1">Issue not found</div>
         <div class="text-sm" style="color: var(--text-3)">
           @if (!live)
             Waiting for data. Provision Postgres and make sure the issue id is correct.
           @else
-            No issue matches <span class="font-mono">{{ issueId }}</span>.
+            No issue matches <span class="mono">{{ issueId }}</span>.
           @endif
         </div>
       </div>
     @else
 
+      <!-- Header -->
       <header class="mb-6">
         <div class="flex items-start gap-3 mb-3">
-          <span class="w-1.5 rounded-full shrink-0 self-stretch" style="background: {{ levelColor(issue.level) }}; min-height: 2.5rem"></span>
+          <span class="rounded-full shrink-0 self-stretch" style="width:4px; background: {{ levelColor(issue.level) }}; min-height:2.6rem"></span>
           <div class="min-w-0 flex-1">
-            <h1 class="text-xl md:text-2xl font-bold tracking-tight break-words">{{ issue.title }}</h1>
-            <p class="text-sm mt-1 font-mono truncate" style="color: var(--text-3)">{{ issue.culprit || issue.error_type }}</p>
+            <div class="flex items-center gap-2 flex-wrap mb-1">
+              <span class="pill" style="color: {{ levelColor(issue.level) }}; background: color-mix(in srgb, {{ levelColor(issue.level) }} 15%, transparent)">{{ issue.level || 'error' }}</span>
+              <span class="pill" style="color: {{ isResolved ? '#16a34a' : (isIgnored ? 'var(--text-3)' : 'var(--accent)') }}; background: color-mix(in srgb, {{ isResolved ? '#16a34a' : (isIgnored ? '#64748b' : levelColor(issue.level)) }} 14%, transparent)">{{ status }}</span>
+              <span class="text-xs" style="color: var(--text-3)">Last seen {{ lastSeenAgo }}</span>
+            </div>
+            <h1 class="text-lg md:text-xl font-bold tracking-tight break-words" style="line-height:1.35">{{ issue.error_type || 'Error' }}</h1>
+            <p class="text-sm mt-1 break-words" style="color: var(--text-2)">{{ (latest && latest.message) || issue.title }}</p>
+            @if (issue.culprit)
+              <p class="text-xs mt-1.5 mono truncate" style="color: var(--text-3)">{{ issue.culprit }}</p>
+            @endif
           </div>
-          <span class="shrink-0 px-2.5 py-1 rounded-lg text-xs font-semibold uppercase tracking-wider glass"
-                style="color: {{ isResolved ? '#22c55e' : (isIgnored ? 'var(--text-3)' : 'var(--accent)') }}">{{ status }}</span>
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
           @if (isResolved)
             <form method="POST" action="/issue/{{ issue.id }}/status?to=unresolved">
-              <button type="submit" class="px-3 py-1.5 rounded-lg text-sm font-medium glass hover:opacity-80" style="color: var(--text-2)">Reopen</button>
+              <button type="submit" class="btn">Reopen</button>
             </form>
           @else
             <form method="POST" action="/issue/{{ issue.id }}/status?to=resolved">
-              <button type="submit" class="px-3 py-1.5 rounded-lg text-sm font-semibold glass hover:opacity-80" style="color: #22c55e; border-color: rgba(34,197,94,0.4)">✓ Resolve</button>
+              <button type="submit" class="btn btn-primary">&#10003; Resolve</button>
             </form>
           @endif
           @if (isIgnored)
             <form method="POST" action="/issue/{{ issue.id }}/status?to=unresolved">
-              <button type="submit" class="px-3 py-1.5 rounded-lg text-sm font-medium glass hover:opacity-80" style="color: var(--text-2)">Unignore</button>
+              <button type="submit" class="btn">Unignore</button>
             </form>
           @else
             <form method="POST" action="/issue/{{ issue.id }}/status?to=ignored">
-              <button type="submit" class="px-3 py-1.5 rounded-lg text-sm font-medium glass hover:opacity-80" style="color: var(--text-2)">Ignore</button>
+              <button type="submit" class="btn">Ignore</button>
             </form>
           @endif
         </div>
       </header>
 
-      <div class="grid gap-4 mb-6" style="grid-template-columns: repeat(auto-fit, minmax(140px, 1fr))">
-        @foreach (metaRows as m)
-          <div class="glass rounded-xl px-4 py-3">
-            <div class="text-xs font-medium uppercase tracking-wider mb-1" style="color: var(--text-3)">{{ m.label }}</div>
-            <div class="text-sm font-semibold {{ m.mono ? 'font-mono truncate' : '' }}">{{ m.value }}</div>
-          </div>
-        @endforeach
-      </div>
+      <!-- Two-column: stack + breadcrumbs (main), context (sidebar) -->
+      <div class="grid gap-5 items-start" style="grid-template-columns: minmax(0,1fr)">
+        <div class="grid gap-5 items-start bughq-cols">
 
-      @if (tagList.length)
-        <div class="flex flex-wrap gap-2 mb-6">
-          @foreach (tagList as t)
-            <span class="glass rounded-lg px-2.5 py-1 text-xs font-mono">
-              <span style="color: var(--text-3)">{{ t.key }}</span>
-              <span style="color: var(--text-2)">{{ t.value }}</span>
-            </span>
-          @endforeach
+          <!-- MAIN -->
+          <main class="min-w-0 grid gap-5 items-start" style="grid-auto-rows:min-content">
+
+            @if (exceptions.length)
+              <section class="card overflow-hidden">
+                <div class="card-head" style="justify-content:space-between">
+                  <span>Stack trace</span>
+                  <button type="button" class="copybtn btn" data-copy-stack style="padding:.25rem .55rem">Copy</button>
+                </div>
+                <div style="padding:.5rem">
+                  @foreach (exceptions as ex)
+                    <div class="exc card" style="border-color:var(--border-2); box-shadow:none">
+                      <div class="exc-head">
+                        @if (ex.isCause)
+                          <span class="caused">&#8627; Caused by</span>
+                        @endif
+                        <div class="exc-type">{{ ex.type }}</div>
+                        @if (ex.message)
+                          <div class="exc-msg">{{ ex.message }}</div>
+                        @endif
+                      </div>
+                      <div class="frames">
+                        @forelse (ex.segments as seg)
+                          @if (seg.kind === 'app')
+                            <div class="frame is-app {{ seg.frame.isCrash ? 'is-crash' : '' }}">
+                              <div class="fr-main">
+                                <span class="fr-base">{{ seg.frame.base || '<anonymous>' }}</span>
+                                <span class="fr-dir">{{ seg.frame.dir }}</span>
+                                <span class="fr-fn">{{ seg.frame.func && seg.frame.func !== '<anonymous>' ? 'in ' : '' }}<b>{{ seg.frame.func && seg.frame.func !== '<anonymous>' ? seg.frame.func : '' }}</b></span>
+                              </div>
+                              <span class="fr-loc">{{ seg.frame.line ? (seg.frame.col ? seg.frame.line + ':' + seg.frame.col : seg.frame.line) : '' }}</span>
+                            </div>
+                          @else
+                            <details class="sysgroup">
+                              <summary>
+                                <span class="chev">&#9656;</span>
+                                <span>{{ seg.frames.length }} {{ seg.frames.length === 1 ? 'system frame' : 'system frames' }}</span>
+                              </summary>
+                              @foreach (seg.frames as fr)
+                                <div class="frame is-sys">
+                                  <div class="fr-main">
+                                    <span class="fr-base">{{ fr.base || '<anonymous>' }}</span>
+                                    <span class="fr-dir">{{ fr.dir }}</span>
+                                    <span class="fr-fn">{{ fr.func && fr.func !== '<anonymous>' ? 'in ' : '' }}<b>{{ fr.func && fr.func !== '<anonymous>' ? fr.func : '' }}</b></span>
+                                  </div>
+                                  <span class="fr-loc">{{ fr.line ? (fr.col ? fr.line + ':' + fr.col : fr.line) : '' }}</span>
+                                </div>
+                              @endforeach
+                            </details>
+                          @endif
+                        @empty
+                          <div class="px-3 py-4 text-xs mono" style="color:var(--text-3)">No frames parsed.</div>
+                        @endforelse
+                      </div>
+                    </div>
+                  @endforeach
+                </div>
+              </section>
+            @else
+              @if (stack)
+                <section class="card overflow-hidden">
+                  <div class="card-head">Stack trace</div>
+                  <pre class="jsonblock">{{ stack }}</pre>
+                </section>
+              @endif
+            @endif
+
+            @if (crumbs.length)
+              <section class="card overflow-hidden">
+                <div class="card-head">Breadcrumbs <span style="color:var(--text-2)">{{ crumbs.length }}</span></div>
+                <div>
+                  @foreach (crumbs as c)
+                    <div class="crumb">
+                      <span class="crumb-ic" style="color: {{ bcTint(c.kind) }}; background: color-mix(in srgb, {{ bcTint(c.kind) }} 14%, transparent)">{!! BC_ICONS[c.kind] !!}</span>
+                      <span class="crumb-cat">{{ c.label }}</span>
+                      <span class="crumb-txt">{{ c.text }}</span>
+                      <span class="crumb-time">{{ c.time }}</span>
+                    </div>
+                  @endforeach
+                </div>
+              </section>
+            @endif
+
+            <section class="card overflow-hidden">
+              <div class="card-head">Recent events <span style="color:var(--text-2)">{{ events.length }}</span></div>
+              @forelse (events as ev)
+                <div class="flex items-center gap-3 px-4 py-2.5" style="border-top:1px solid var(--border-2)">
+                  <span class="shrink-0 rounded-full" style="width:7px; height:7px; background: {{ levelColor(ev.severity) }}"></span>
+                  <div class="min-w-0 flex-1">
+                    <div class="text-sm truncate">{{ ev.url || ev.environment || 'event' }}</div>
+                    <div class="text-xs mono truncate" style="color: var(--text-3)">{{ [ev.browser, ev.os, ev.framework, ev.release].filter(Boolean).join(' · ') || ev.category || '-' }}</div>
+                  </div>
+                  <div class="text-right shrink-0">
+                    <div class="text-xs tabular-nums" style="color: var(--text-2)">{{ fromNow(ev.timestamp) }}</div>
+                    <div class="text-xs" style="color: var(--text-3)">{{ ev.environment || '-' }}</div>
+                  </div>
+                </div>
+              @empty
+                <div class="px-5 py-10 text-center text-sm" style="color: var(--text-3)">No events recorded yet.</div>
+              @endforelse
+            </section>
+
+          </main>
+
+          <!-- SIDEBAR -->
+          <aside class="min-w-0 grid gap-5 items-start" style="grid-auto-rows:min-content">
+
+            <section class="card overflow-hidden">
+              <div class="card-head">Event</div>
+              <dl class="kv">
+                @foreach (eventMeta as m)
+                  <dt>{{ m.label }}</dt>
+                  <dd>
+                    @if (m.pill)
+                      <span class="pill" style="color: {{ levelColor(m.value) }}; background: color-mix(in srgb, {{ levelColor(m.value) }} 15%, transparent)">{{ m.value }}</span>
+                    @else
+                      {{ m.value }}
+                    @endif
+                  </dd>
+                @endforeach
+                <dt>First seen</dt>
+                <dd title="{{ fmtDate(issue.first_seen) }}">{{ firstSeenAgo }}</dd>
+                <dt>Last seen</dt>
+                <dd title="{{ fmtDate(issue.last_seen) }}">{{ lastSeenAgo }}</dd>
+                @foreach (statRows as s)
+                  <dt>{{ s.label }}</dt>
+                  <dd>{{ s.value }}</dd>
+                @endforeach
+              </dl>
+            </section>
+
+            @if (latest && latest.url)
+              <section class="card overflow-hidden">
+                <div class="card-head">URL</div>
+                <div class="jsonblock" style="color:var(--text)">{{ latest.url }}</div>
+              </section>
+            @endif
+
+            @if (tagList.length)
+              <section class="card overflow-hidden">
+                <div class="card-head">Tags</div>
+                <dl class="kv">
+                  @foreach (tagList as t)
+                    <dt>{{ t.key }}</dt>
+                    <dd>{{ t.value }}</dd>
+                  @endforeach
+                </dl>
+              </section>
+            @endif
+
+            @if (userRows.length)
+              <section class="card overflow-hidden">
+                <div class="card-head">User</div>
+                <dl class="kv">
+                  @foreach (userRows as r)
+                    <dt>{{ r.k }}</dt>
+                    <dd>{{ r.v }}</dd>
+                  @endforeach
+                </dl>
+              </section>
+            @endif
+
+            @foreach (contextList as ctx)
+              <section class="card overflow-hidden">
+                <div class="card-head">{{ ctx.name }}</div>
+                @forelse (ctx.rows as r)
+                  <dl class="kv" style="padding-top:.6rem; padding-bottom:.2rem">
+                    <dt>{{ r.k }}</dt>
+                    <dd>{{ r.v }}</dd>
+                  </dl>
+                @empty
+                  <div class="px-4 py-3 text-xs mono" style="color:var(--text-3)">empty</div>
+                @endforelse
+                <div style="height:.6rem"></div>
+              </section>
+            @endforeach
+
+            @if (extra)
+              <section class="card overflow-hidden">
+                <div class="card-head">Additional data</div>
+                <pre class="jsonblock">{{ JSON.stringify(extra, null, 2) }}</pre>
+              </section>
+            @endif
+
+          </aside>
+
         </div>
-      @endif
-
-      @if (stack)
-        <div class="glass rounded-xl overflow-hidden mb-6">
-          <div class="px-5 py-3 border-b text-sm font-semibold uppercase tracking-wider" style="color: var(--text-3); border-color: var(--border)">Stack trace</div>
-          <div class="trace text-xs leading-relaxed px-5 py-4" style="color: var(--text-2)">{{ stack }}</div>
-        </div>
-      @endif
-
-      @if (breadcrumbs.length)
-        <div class="glass rounded-xl overflow-hidden mb-6">
-          <div class="px-5 py-3 border-b text-sm font-semibold uppercase tracking-wider" style="color: var(--text-3); border-color: var(--border)">Breadcrumbs ({{ breadcrumbs.length }})</div>
-          @foreach (breadcrumbs as b)
-            <div class="flex items-start gap-3 px-5 py-2 border-b text-xs" style="border-color: var(--border)">
-              <span class="w-2 h-2 mt-1 rounded-full shrink-0" style="background: {{ levelColor(b.level) }}"></span>
-              <span class="font-mono shrink-0" style="color: var(--text-3); min-width: 6.5rem">{{ bcLabel(b) }}</span>
-              <span class="flex-1 min-w-0 break-words font-mono" style="color: var(--text-2)">{{ (b.message || '') + (b.data ? '  ' + JSON.stringify(b.data) : '') }}</span>
-              <span class="tabular-nums shrink-0" style="color: var(--text-3)">{{ bcTime(b.timestamp) }}</span>
-            </div>
-          @endforeach
-        </div>
-      @endif
-
-      @if (userCtx || extra || contextList.length)
-        <div class="grid gap-4 mb-6" style="grid-template-columns: repeat(auto-fit, minmax(240px, 1fr))">
-          @if (userCtx)
-            <div class="glass rounded-xl overflow-hidden">
-              <div class="px-5 py-3 border-b text-sm font-semibold uppercase tracking-wider" style="color: var(--text-3); border-color: var(--border)">User</div>
-              <div class="trace text-xs leading-relaxed px-5 py-4" style="color: var(--text-2)">{{ JSON.stringify(userCtx, null, 2) }}</div>
-            </div>
-          @endif
-          @foreach (contextList as ctx)
-            <div class="glass rounded-xl overflow-hidden">
-              <div class="px-5 py-3 border-b text-sm font-semibold uppercase tracking-wider" style="color: var(--text-3); border-color: var(--border)">{{ ctx.name }}</div>
-              <div class="trace text-xs leading-relaxed px-5 py-4" style="color: var(--text-2)">{{ JSON.stringify(ctx.value, null, 2) }}</div>
-            </div>
-          @endforeach
-          @if (extra)
-            <div class="glass rounded-xl overflow-hidden">
-              <div class="px-5 py-3 border-b text-sm font-semibold uppercase tracking-wider" style="color: var(--text-3); border-color: var(--border)">Extra data</div>
-              <div class="trace text-xs leading-relaxed px-5 py-4" style="color: var(--text-2)">{{ JSON.stringify(extra, null, 2) }}</div>
-            </div>
-          @endif
-        </div>
-      @endif
-
-      <div class="glass rounded-xl overflow-hidden">
-        <div class="px-5 py-3 border-b text-sm font-semibold uppercase tracking-wider" style="color: var(--text-3); border-color: var(--border)">Recent events ({{ events.length }})</div>
-        @forelse (events as ev)
-          <div class="flex items-center gap-4 px-5 py-3 border-b" style="border-color: var(--border)">
-            <span class="w-2 h-2 rounded-full shrink-0" style="background: {{ levelColor(ev.severity) }}"></span>
-            <div class="min-w-0 flex-1">
-              <div class="text-sm truncate">{{ ev.url || ev.environment || 'event' }}</div>
-              <div class="text-xs font-mono truncate" style="color: var(--text-3)">
-                {{ [ev.browser, ev.os, ev.framework, ev.release].filter(Boolean).join(' · ') || ev.category || '-' }}
-              </div>
-            </div>
-            <div class="text-right shrink-0">
-              <div class="text-xs tabular-nums" style="color: var(--text-2)">{{ fromNow(ev.timestamp) }}</div>
-              <div class="text-xs" style="color: var(--text-3)">{{ ev.environment || '-' }}</div>
-            </div>
-          </div>
-        @empty
-          <div class="px-5 py-12 text-center text-sm" style="color: var(--text-3)">No events recorded yet.</div>
-        @endforelse
       </div>
 
     @endif
@@ -315,8 +643,17 @@ body { background: var(--bg); color: var(--text); font-family: ui-sans-serif, sy
   </div>
 </div>
 
+<!-- Raw stack for the copy button (escaped, safe). -->
+<pre id="raw-stack" hidden>{{ stack }}</pre>
+
+<style>
+@media (min-width: 1024px) {
+  .bughq-cols { grid-template-columns: minmax(0,1fr) 20rem; }
+}
+</style>
+
 <!-- Client guard: require the bearer token and mirror it into the cookie the
-     server authenticates from (matches the dashboard). -->
+     server authenticates from (matches the dashboard). Plus copy-stack. -->
 <script>
 (function () {
   var t = localStorage.getItem('token')
@@ -324,6 +661,17 @@ body { background: var(--bg); color: var(--text); font-family: ui-sans-serif, sy
   if (!/(^|;)\s*token=/.test(document.cookie)) {
     document.cookie = 'token=' + t + '; path=/; max-age=2592000; samesite=lax'
     window.location.reload()
+    return
+  }
+  var btn = document.querySelector('[data-copy-stack]')
+  var raw = document.getElementById('raw-stack')
+  if (btn && raw) {
+    btn.addEventListener('click', function () {
+      var text = raw.textContent || ''
+      var done = function () { var o = btn.textContent; btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = o }, 1200) }
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, done)
+      else done()
+    })
   }
 })()
 </script>
