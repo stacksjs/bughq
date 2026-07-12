@@ -115,6 +115,20 @@ function installGuide(platform, project, key, host) {
       code: `import { bughq } from '@bughq/sdk'\n\nbughq.init({ project: '${project}', key: '${key}' })\n// then capture render errors from an ErrorBoundary`,
     }
   }
+  if (p === 'laravel') {
+    return {
+      label: 'Laravel',
+      install: 'composer require bughq/bughq-laravel',
+      code: `# .env\nBUGHQ_PROJECT=${project}\nBUGHQ_KEY=${key}\n\n# exceptions, failed jobs, and breadcrumbs are captured automatically`,
+    }
+  }
+  if (p === 'php') {
+    return {
+      label: 'PHP',
+      install: 'composer require bughq/bughq',
+      code: `use BugHQ\\BugHQ;\n\nBugHQ::init([\n    'project' => '${project}',\n    'key' => '${key}',\n]);`,
+    }
+  }
   // javascript / browser / other — drop-in script tag
   return { label: 'HTML', install: '', code: scriptTag }
 }

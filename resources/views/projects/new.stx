@@ -116,6 +116,8 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
           <option value="react">React</option>
           <option value="vue">Vue</option>
           <option value="nuxt">Nuxt</option>
+          <option value="laravel">Laravel</option>
+          <option value="php">PHP</option>
           <option value="other">Other</option>
         </select>
       </div>
