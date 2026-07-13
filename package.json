@@ -68,7 +68,7 @@
     "sqlite": "^3.47.2"
   },
   "dependencies": {
-    "stacks": "^0.70.76"
+    "stacks": "^0.70.77"
   },
   "devDependencies": {
     "better-dx": "^0.2.15"

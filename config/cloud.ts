@@ -689,10 +689,11 @@ export const tsCloud: TsCloudConfig = {
     // fronted by the reverse proxy on bughq.org. Single-purpose error-tracking
     // app: no docs/blog/marketing static sites from the scaffold template.
     //
-    // Keyed `bughq` (not the generic `main`) so that on the shared `stacks`
-    // box (attachTo) this ships to /var/www/bughq and a `bughq-bughq` service —
-    // never colliding with the box owner's own `main` site at /var/www/main.
-    bughq: {
+    // On the shared `stacks` box (attachTo) ts-cloud namespaces every install
+    // dir by project slug — this ships to /var/www/bughq-main via the
+    // `bughq-main` service, so the generic `main` key can never collide with
+    // the box owner's own `main` site (see ts-cloud siteInstallBase).
+    main: {
       root: '.',
       path: '/',
       domain: env.APP_DOMAIN || 'bughq.org',
