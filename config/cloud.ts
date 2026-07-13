@@ -688,7 +688,11 @@ export const tsCloud: TsCloudConfig = {
     // dashboard + serving the /errors ingest + /api issue routes on :3000,
     // fronted by the reverse proxy on bughq.org. Single-purpose error-tracking
     // app: no docs/blog/marketing static sites from the scaffold template.
-    main: {
+    //
+    // Keyed `bughq` (not the generic `main`) so that on the shared `stacks`
+    // box (attachTo) this ships to /var/www/bughq and a `bughq-bughq` service —
+    // never colliding with the box owner's own `main` site at /var/www/main.
+    bughq: {
       root: '.',
       path: '/',
       domain: env.APP_DOMAIN || 'bughq.org',
