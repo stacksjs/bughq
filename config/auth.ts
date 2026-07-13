@@ -84,6 +84,16 @@ export default {
    */
   passwordReset: {
     /**
+     * Where the emailed reset link points. `{token}` and `{email}` are
+     * filled in by the framework's password-reset sender.
+     *
+     * TEMPORARY: absolute local URL for the local-dev phase; switch to the
+     * path template '/reset-password?token={token}&email={email}' at launch
+     * so it resolves against the deployed app URL.
+     */
+    url: env.AUTH_PASSWORD_RESET_URL || 'http://localhost:3100/reset-password?token={token}&email={email}',
+
+    /**
      * Token expiration time in minutes.
      * After this time, the reset link becomes invalid.
      *

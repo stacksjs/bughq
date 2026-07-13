@@ -90,7 +90,10 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
         <input name="email" type="email" required autocomplete="email" placeholder="you@example.com" class="field w-full px-3.5 py-2.5 text-sm">
       </div>
       <div>
-        <label class="block text-xs font-medium mb-1.5" style="color: var(--text-2)">Password</label>
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="block text-xs font-medium" style="color: var(--text-2)">Password</label>
+          <a href="/forgot-password" class="text-xs font-medium" style="color: var(--accent)">Forgot password?</a>
+        </div>
         <input name="password" type="password" required autocomplete="current-password" placeholder="••••••••" class="field w-full px-3.5 py-2.5 text-sm">
       </div>
 
