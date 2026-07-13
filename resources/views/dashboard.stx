@@ -43,10 +43,6 @@ if (token) {
   catch { user = null }
 }
 
-let origin = ''
-try { origin = new URL(requestContext.url()).origin }
-catch { origin = '' }
-
 // Load the user's OWN projects and pick the active one (owner-scoped).
 let projects = []
 let activeProject = null
@@ -156,9 +152,11 @@ catch {
 }
 
 // Framework-specific install instructions, keyed off the project's platform.
-function installGuide(platform, project, key, host) {
+// Install guides are host-free by design: the SDKs (and the served snippet)
+// default to the bughq ingest, so integrating is only ever project + key.
+function installGuide(platform, project, key) {
   const p = String(platform || 'javascript').toLowerCase()
-  const scriptTag = `<script src="${host || 'https://bughq.org'}/sdk.js"\n        data-project="${project}"\n        data-key="${key}"><\/script>`
+  const scriptTag = `<script src="https://bughq.org/sdk.js"\n        data-project="${project}"\n        data-key="${key}"><\/script>`
   if (p === 'vue') {
     return {
       label: 'Vue',
@@ -205,7 +203,7 @@ function installGuide(platform, project, key, host) {
   return { label: 'HTML', install: '', code: scriptTag }
 }
 const guide = activeProject
-  ? installGuide(activeProject.platform, activeProject.id, activeProject.ingest_key, origin)
+  ? installGuide(activeProject.platform, activeProject.id, activeProject.ingest_key)
   : null
 
 // Severity drives the one accent-adjacent semantic color used on the list rail.
