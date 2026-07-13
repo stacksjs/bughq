@@ -280,7 +280,7 @@ summary::-webkit-details-marker { display: none; }
   <div class="max-w-5xl mx-auto">
 
     @if (!user)
-      <div class="text-center py-24 text-sm" style="color: var(--text-3)">Loading…</div>
+      <div id="auth-pending" class="text-center py-24 text-sm" style="color: var(--text-3)">Loading…</div>
     @endif
 
     @if (user && needsOnboarding)
@@ -432,6 +432,16 @@ summary::-webkit-details-marker { display: none; }
   if (!/(^|;)\s*token=/.test(document.cookie)) {
     document.cookie = 'token=' + t + '; path=/; max-age=2592000; samesite=lax'
     window.location.reload()
+    return
+  }
+  // The cookie WAS sent but the server still rendered the unauthenticated
+  // state: the token is dead (expired, revoked, or replaced by a newer
+  // login). Clear the stale credentials and go to login — without this the
+  // page wedges on "Loading…" forever.
+  if (document.getElementById('auth-pending')) {
+    localStorage.removeItem('token'); localStorage.removeItem('user')
+    document.cookie = 'token=; path=/; max-age=0'
+    window.location.replace('/login')
     return
   }
 
