@@ -154,9 +154,11 @@ catch {
 // Framework-specific install instructions, keyed off the project's platform.
 // Install guides are host-free by design: the SDKs (and the served snippet)
 // default to the bughq ingest, so integrating is only ever project + key.
+// TEMPORARY: the snippet src points at the local ingest during the local-dev
+// phase; switch back to https://bughq.org/sdk.js at launch.
 function installGuide(platform, project, key) {
   const p = String(platform || 'javascript').toLowerCase()
-  const scriptTag = `<script src="https://bughq.org/sdk.js"\n        data-project="${project}"\n        data-key="${key}"><\/script>`
+  const scriptTag = `<script src="http://localhost:3108/sdk.js"\n        data-project="${project}"\n        data-key="${key}"><\/script>`
   if (p === 'vue') {
     return {
       label: 'Vue',
