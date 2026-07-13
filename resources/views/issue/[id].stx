@@ -42,7 +42,7 @@ if (!issueId && typeof id !== 'undefined' && id)
 
 // Authenticate + owner-scope: an issue is only visible to the owner of the
 // project it belongs to, so no tenant can read another's issue by id.
-const token = (typeof requestContext !== 'undefined' && requestContext.cookie && requestContext.cookie('token')) || ''
+const token = (typeof requestContext !== 'undefined' && requestContext.cookie && requestContext.cookie('bughq_token')) || ''
 let user = null
 if (token) {
   try {
@@ -658,8 +658,8 @@ details.sysgroup[open] > summary .chev { transform: rotate(90deg); }
 (function () {
   var t = localStorage.getItem('token')
   if (!t) { window.location.replace('/login'); return }
-  if (!/(^|;)\s*token=/.test(document.cookie)) {
-    document.cookie = 'token=' + t + '; path=/; max-age=2592000; samesite=lax'
+  if (!/(^|;)\s*bughq_token=/.test(document.cookie)) {
+    document.cookie = 'bughq_token=' + t + '; path=/; max-age=2592000; samesite=lax'
     window.location.reload()
     return
   }

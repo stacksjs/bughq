@@ -25,7 +25,7 @@ async function handleSubmit(e) {
     const token = data.token || data.access_token || ''
     localStorage.setItem('token', token)
     // Mirror the token into a cookie so server-rendered pages can authenticate.
-    document.cookie = `token=${token}; path=/; max-age=2592000; samesite=lax`
+    document.cookie = `bughq_token=${token}; path=/; max-age=2592000; samesite=lax`
     if (data.user)
       localStorage.setItem('user', JSON.stringify(data.user))
     navigate('/dashboard')

@@ -6,7 +6,7 @@ const meta = { title: 'bughq - Your apps', description: 'Error tracking' }
 
 const { db } = await import('@stacksjs/database')
 
-const token = (typeof requestContext !== 'undefined' && requestContext.cookie && requestContext.cookie('token')) || ''
+const token = (typeof requestContext !== 'undefined' && requestContext.cookie && requestContext.cookie('bughq_token')) || ''
 let user = null
 if (token) {
   try {
@@ -117,15 +117,15 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
 (function () {
   var t = localStorage.getItem('token')
   if (!t) { window.location.replace('/login'); return }
-  if (!/(^|;)\s*token=/.test(document.cookie)) {
-    document.cookie = 'token=' + t + '; path=/; max-age=2592000; samesite=lax'
+  if (!/(^|;)\s*bughq_token=/.test(document.cookie)) {
+    document.cookie = 'bughq_token=' + t + '; path=/; max-age=2592000; samesite=lax'
     window.location.reload()
     return
   }
   var btn = document.getElementById('logout')
   if (btn) btn.addEventListener('click', function () {
     localStorage.removeItem('token'); localStorage.removeItem('user')
-    document.cookie = 'token=; path=/; max-age=0'
+    document.cookie = 'bughq_token=; path=/; max-age=0'
     window.location.assign('/login')
   })
 })()

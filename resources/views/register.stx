@@ -34,7 +34,7 @@ async function handleSubmit(e) {
     localStorage.setItem('token', token)
     // Mirror the token into a cookie so server-rendered pages (the dashboard)
     // can authenticate this user on plain navigation.
-    document.cookie = `token=${token}; path=/; max-age=2592000; samesite=lax`
+    document.cookie = `bughq_token=${token}; path=/; max-age=2592000; samesite=lax`
     if (data.user)
       localStorage.setItem('user', JSON.stringify(data.user))
     // New accounts have no apps yet: go straight to the create-app screen.
