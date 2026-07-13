@@ -10,8 +10,24 @@ const { db } = await import('@stacksjs/database')
 // Query params (project/status) come from globalThis.__stxServeSearch (the dev
 // server stashes url.search there).
 const query = new URLSearchParams((typeof globalThis !== 'undefined' && globalThis.__stxServeSearch) || '')
-const statusFilter = query.get('status') || 'unresolved'
+const statusFilter = ['unresolved', 'resolved', 'all'].includes(query.get('status')) ? query.get('status') : 'unresolved'
 const requestedProject = query.get('project')
+
+// Date ranges are a whitelist: the key comes from the URL, but only the mapped
+// interval string (never the raw param) is ever interpolated into SQL.
+const RANGES = [
+  { key: '24h', label: '24h', interval: '24 hours' },
+  { key: '7d', label: '7d', interval: '7 days' },
+  { key: '30d', label: '30d', interval: '30 days' },
+  { key: '90d', label: '90d', interval: '90 days' },
+  { key: 'all', label: 'All time', interval: null },
+]
+const rangeFilter = RANGES.some(r => r.key === query.get('range')) ? query.get('range') : 'all'
+const activeRange = RANGES.find(r => r.key === rangeFilter)
+
+const PAGE_SIZE = 25
+const pageParam = Number.parseInt(query.get('page') || '1', 10)
+const requestedPage = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1
 
 // Authenticate from the token cookie (mirrored from localStorage by
 // login/register). requestContext works in server scripts as of the framework
@@ -47,28 +63,84 @@ if (user) {
 }
 const projectId = activeProject?.id || null
 
-const filters = [
+// Canonical dashboard URL for a filter state; defaults are omitted so links
+// stay clean (/dashboard?project=x rather than a full param soup). Changing
+// status or range always resets to page 1.
+function pageUrl(overrides) {
+  const state = { project: projectId, status: statusFilter, range: rangeFilter, page: requestedPage, ...overrides }
+  const p = new URLSearchParams()
+  if (state.project)
+    p.set('project', state.project)
+  if (state.status && state.status !== 'unresolved')
+    p.set('status', state.status)
+  if (state.range && state.range !== 'all')
+    p.set('range', state.range)
+  if (state.page && state.page > 1)
+    p.set('page', String(state.page))
+  const s = p.toString()
+  return s ? `/dashboard?${s}` : '/dashboard'
+}
+
+const statusTabs = [
   { key: 'unresolved', label: 'Unresolved' },
   { key: 'resolved', label: 'Resolved' },
   { key: 'all', label: 'All' },
-]
+].map(f => ({ ...f, href: pageUrl({ status: f.key, page: 1 }) }))
+const rangeTabs = RANGES.map(r => ({ ...r, href: pageUrl({ range: r.key, page: 1 }) }))
 
 let issues = []
 let counts = { total: 0, unresolved: 0, events: 0 }
 let live = false
+let pager = { from: 0, to: 0, total: 0, page: 1, pages: 1, hasPrev: false, hasNext: false, prevHref: '', nextHref: '' }
 
 async function loadData() {
   if (!projectId)
     return
-  const where = statusFilter === 'all'
-    ? ['project_id = $1', [projectId]]
-    : ['project_id = $1 AND status = $2', [projectId, statusFilter]]
+  // WHERE for the list: project + status + date range. The interval string is
+  // from the RANGES whitelist above, never from user input.
+  const conds = ['project_id = $1']
+  const params = [projectId]
+  if (statusFilter !== 'all') {
+    params.push(statusFilter)
+    conds.push(`status = $${params.length}`)
+  }
+  // last_seen is stored as an ISO-8601 varchar (the ingest writes
+  // toISOString()), so cast before comparing against a real timestamp.
+  if (activeRange.interval)
+    conds.push(`last_seen::timestamptz >= NOW() - INTERVAL '${activeRange.interval}'`)
+  const where = conds.join(' AND ')
+
+  // Count first so an out-of-range ?page clamps to the last real page instead
+  // of rendering an empty list.
+  const filteredTotal = Number((await db.unsafe(`SELECT COUNT(*) AS n FROM issues WHERE ${where}`, params))?.[0]?.n ?? 0)
+  const pages = Math.max(1, Math.ceil(filteredTotal / PAGE_SIZE))
+  const page = Math.min(requestedPage, pages)
+  const offset = (page - 1) * PAGE_SIZE
+
   issues = (await db.unsafe(
-    `SELECT id, title, culprit, error_type, level, status, count, users_affected, last_seen FROM issues WHERE ${where[0]} ORDER BY last_seen DESC LIMIT 100`,
-    where[1],
+    `SELECT id, title, culprit, error_type, level, status, count, users_affected, last_seen FROM issues WHERE ${where} ORDER BY last_seen DESC, id DESC LIMIT ${PAGE_SIZE} OFFSET ${offset}`,
+    params,
   )) ?? []
+
+  pager = {
+    from: filteredTotal === 0 ? 0 : offset + 1,
+    to: offset + issues.length,
+    total: filteredTotal,
+    page,
+    pages,
+    hasPrev: page > 1,
+    hasNext: page < pages,
+    prevHref: pageUrl({ page: page - 1 }),
+    nextHref: pageUrl({ page: page + 1 }),
+  }
+
+  // Stats respect the date range (so "Events captured" means captured in the
+  // selected window) but not the status tabs, which only slice the list.
+  const cconds = ['project_id = $1']
+  if (activeRange.interval)
+    cconds.push(`last_seen::timestamptz >= NOW() - INTERVAL '${activeRange.interval}'`) // varchar ISO column, see above
   const c = (await db.unsafe(
-    `SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE status = 'unresolved') AS unresolved, COALESCE(SUM(count),0) AS events FROM issues WHERE project_id = $1`,
+    `SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE status = 'unresolved') AS unresolved, COALESCE(SUM(count),0) AS events FROM issues WHERE ${cconds.join(' AND ')}`,
     [projectId],
   ))?.[0]
   counts = { total: Number(c?.total ?? 0), unresolved: Number(c?.unresolved ?? 0), events: Number(c?.events ?? 0) }
@@ -221,7 +293,7 @@ summary::-webkit-details-marker { display: none; }
       <div class="flex items-center gap-3">
         <h1 class="wordmark text-2xl md:text-[28px] leading-none">bughq</h1>
         @if (projects.length > 1)
-          <select onchange="location.href='/dashboard?project=' + encodeURIComponent(this.value)"
+          <select onchange="location.href='/dashboard?project=' + encodeURIComponent(this.value) + '&status={{ statusFilter }}&range={{ rangeFilter }}'"
                   class="panel mono px-3 py-1.5 text-sm" style="color: var(--text-2)">
             @foreach (projects as p)
               <option value="{{ p.id }}" {{ p.id === projectId ? 'selected' : '' }}>{{ p.name }}</option>
@@ -233,11 +305,17 @@ summary::-webkit-details-marker { display: none; }
         <a href="/projects" class="pill px-3 py-1.5 text-sm font-medium border" style="color: var(--text-2); border-color: var(--border)">All apps</a>
         <a href="/projects/new" class="pill px-3 py-1.5 text-sm font-medium border" style="color: var(--text-2); border-color: var(--border)">+ New app</a>
       </div>
-      <nav class="flex items-center gap-1.5">
-        @foreach (filters as f)
-          <a href="/dashboard?project={{ projectId }}&status={{ f.key }}"
+      <nav class="flex flex-wrap items-center gap-1.5">
+        @foreach (statusTabs as f)
+          <a href="{{ f.href }}"
              class="pill px-3.5 py-1.5 text-sm font-medium border"
              style="{{ f.key === statusFilter ? 'color: #fff; background: var(--accent); border-color: var(--accent)' : 'color: var(--text-2); border-color: var(--border)' }}">{{ f.label }}</a>
+        @endforeach
+        <span class="w-px h-4 mx-1.5 shrink-0" style="background: var(--border)" aria-hidden="true"></span>
+        @foreach (rangeTabs as r)
+          <a href="{{ r.href }}"
+             class="pill mono px-3 py-1.5 text-xs font-medium border"
+             style="{{ r.key === rangeFilter ? 'color: var(--accent); border-color: var(--accent)' : 'color: var(--text-3); border-color: var(--border)' }}">{{ r.label }}</a>
         @endforeach
       </nav>
     </header>
@@ -283,7 +361,7 @@ summary::-webkit-details-marker { display: none; }
     <section class="panel overflow-hidden reveal">
       <div class="flex items-center justify-between px-5 py-3.5 border-b" style="border-color: var(--border)">
         <span class="text-xs font-semibold uppercase tracking-wider" style="color: var(--text-3)">Issues</span>
-        <span class="mono text-xs" style="color: var(--text-3)">{{ issues.length }} shown</span>
+        <span class="mono text-xs" style="color: var(--text-3)">{{ pager.total === 0 ? 'none' : `${pager.from}-${pager.to} of ${pager.total.toLocaleString()}` }}</span>
       </div>
 
       @forelse (issues as issue)
@@ -309,10 +387,29 @@ summary::-webkit-details-marker { display: none; }
         </a>
       @empty
         <div class="px-5 py-16 text-center">
-          <div class="text-base font-medium mb-1">No {{ statusFilter === 'all' ? '' : statusFilter }} issues</div>
+          <div class="text-base font-medium mb-1">No {{ statusFilter === 'all' ? '' : statusFilter }} issues{{ activeRange.interval ? ` in the last ${activeRange.interval}` : '' }}</div>
           <div class="text-sm" style="color: var(--text-3)">Nothing to triage right now. New errors land here as they are captured.</div>
         </div>
       @endforelse
+
+      @if (pager.pages > 1)
+        <div class="flex items-center justify-between px-5 py-3.5">
+          <span class="mono text-xs" style="color: var(--text-3)">{{ pager.from }}-{{ pager.to }} of {{ pager.total.toLocaleString() }}</span>
+          <div class="flex items-center gap-2">
+            @if (pager.hasPrev)
+              <a href="{{ pager.prevHref }}" class="pill px-3 py-1.5 text-xs font-medium border" style="color: var(--text-2); border-color: var(--border)">&larr; Prev</a>
+            @else
+              <span class="pill px-3 py-1.5 text-xs font-medium border" style="color: var(--text-3); border-color: var(--border); opacity: 0.45">&larr; Prev</span>
+            @endif
+            <span class="mono text-xs tabular-nums" style="color: var(--text-3)">{{ pager.page }} / {{ pager.pages }}</span>
+            @if (pager.hasNext)
+              <a href="{{ pager.nextHref }}" class="pill px-3 py-1.5 text-xs font-medium border" style="color: var(--text-2); border-color: var(--border)">Next &rarr;</a>
+            @else
+              <span class="pill px-3 py-1.5 text-xs font-medium border" style="color: var(--text-3); border-color: var(--border); opacity: 0.45">Next &rarr;</span>
+            @endif
+          </div>
+        </div>
+      @endif
     </section>
     @endif
 
