@@ -10,6 +10,7 @@
 import { Auth } from '@stacksjs/auth'
 import { db } from '@stacksjs/database'
 import { response, route } from '@stacksjs/router'
+import { notifyIssueOpened } from '../app/Errors/alerts'
 import { categorize, culprit, fingerprint, fingerprintFromParts, issueTitle, randomId } from '../app/Errors/fingerprint'
 import { authorizeIngest } from '../app/Errors/ingest'
 
@@ -128,7 +129,7 @@ route.post('/errors', async (request: any) => {
   // db.unsafe (parameterized) so they're schema-independent and skip the global
   // soft-delete filter these tables don't participate in.
   const existing = (await db.unsafe(
-    'SELECT id, count FROM issues WHERE project_id = $1 AND fingerprint = $2 LIMIT 1',
+    'SELECT id, count, status FROM issues WHERE project_id = $1 AND fingerprint = $2 LIMIT 1',
     [String(projectId), fp],
   ))?.[0]
 
@@ -139,15 +140,29 @@ route.post('/errors', async (request: any) => {
       'UPDATE issues SET count = $1, last_seen = $2, status = $3 WHERE id = $4',
       [Number(existing.count ?? 0) + 1, now, 'unresolved', issueId],
     )
+    // A resolved issue coming back is a regression — the one repeat occurrence
+    // worth an email. Fire-and-forget: mail transport must never slow ingest.
+    if (String(existing.status) === 'resolved') {
+      notifyIssueOpened(String(projectId), {
+        id: issueId,
+        title: issueTitle(errorType, message),
+        culprit: culprit(stack),
+        level: body.level ?? 'error',
+        environment: body.environment ?? null,
+        count: Number(existing.count ?? 0) + 1,
+      }, 'regression').catch(err => console.error('[alerts] regression email failed:', err instanceof Error ? err.message : err))
+    }
   }
   else {
     issueId = randomId()
+    const title = issueTitle(errorType, message)
+    const where = culprit(stack)
     await db.insertInto('issues').values({
       id: issueId,
       project_id: String(projectId),
       fingerprint: fp,
-      title: issueTitle(errorType, message),
-      culprit: culprit(stack),
+      title,
+      culprit: where,
       error_type: errorType,
       level: body.level ?? 'error',
       status: 'unresolved',
@@ -156,6 +171,14 @@ route.post('/errors', async (request: any) => {
       first_seen: now,
       last_seen: now,
     }).execute()
+    // First occurrence of a brand-new issue: alert the project owner.
+    notifyIssueOpened(String(projectId), {
+      id: issueId,
+      title,
+      culprit: where,
+      level: body.level ?? 'error',
+      environment: body.environment ?? null,
+    }, 'new').catch(err => console.error('[alerts] new-issue email failed:', err instanceof Error ? err.message : err))
   }
 
   await db.insertInto('error_events').values({
