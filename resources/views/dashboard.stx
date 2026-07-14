@@ -11,7 +11,15 @@ const { db } = await import('@stacksjs/database')
 // server stashes url.search there).
 const query = new URLSearchParams((typeof globalThis !== 'undefined' && globalThis.__stxServeSearch) || '')
 const statusFilter = ['unresolved', 'resolved', 'all'].includes(query.get('status')) ? query.get('status') : 'unresolved'
+
+// The active project is a browsing preference, not shareable filter state, so
+// it lives in a cookie and stays out of the URL. `?project=` still works as a
+// deep link (create-app redirect, All apps cards, alert emails); the client
+// guard persists it into the cookie and scrubs it from the address bar. The
+// cookie is only ever matched against the user's OWN projects below, so a
+// forged value cannot select anything the owner-scope query would not allow.
 const requestedProject = query.get('project')
+const cookieProject = (typeof requestContext !== 'undefined' && requestContext.cookie && requestContext.cookie('bughq_project')) || ''
 
 // Date ranges are a whitelist: the key comes from the URL, but only the mapped
 // interval string (never the raw param) is ever interpolated into SQL.
@@ -55,18 +63,17 @@ if (user) {
   if (projects.length === 0)
     needsOnboarding = true
   else
-    activeProject = projects.find(p => p.id === requestedProject) || projects[0]
+    activeProject = projects.find(p => p.id === requestedProject) || projects.find(p => p.id === cookieProject) || projects[0]
 }
 const projectId = activeProject?.id || null
 
 // Canonical dashboard URL for a filter state; defaults are omitted so links
-// stay clean (/dashboard?project=x rather than a full param soup). Changing
-// status or range always resets to page 1.
+// stay clean (bare /dashboard when everything is default). The project never
+// appears here - it rides the bughq_project cookie. Changing status or range
+// always resets to page 1.
 function pageUrl(overrides) {
-  const state = { project: projectId, status: statusFilter, range: rangeFilter, page: requestedPage, ...overrides }
+  const state = { status: statusFilter, range: rangeFilter, page: requestedPage, ...overrides }
   const p = new URLSearchParams()
-  if (state.project)
-    p.set('project', state.project)
   if (state.status && state.status !== 'unresolved')
     p.set('status', state.status)
   if (state.range && state.range !== 'all')
@@ -263,6 +270,8 @@ const stats = [
 body { background: var(--bg); color: var(--text); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
 .mono { font-family: var(--mono); font-feature-settings: 'tnum' 1; }
 .wordmark { font-family: var(--sans); font-weight: 700; letter-spacing: -0.03em; }
+.wordmark-link { color: inherit; text-decoration: none; transition: opacity 0.15s ease; }
+.wordmark-link:hover { opacity: 0.75; }
 .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; }
 .row-link { transition: background-color 0.15s ease; }
 .row-link:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
@@ -305,9 +314,9 @@ summary::-webkit-details-marker { display: none; }
     @if (user && !needsOnboarding)
     <header class="flex flex-wrap items-end justify-between gap-5 mb-10">
       <div class="flex items-center gap-3">
-        <h1 class="wordmark text-2xl md:text-[28px] leading-none">bughq</h1>
+        <a href="/projects" class="wordmark-link"><h1 class="wordmark text-2xl md:text-[28px] leading-none">bughq</h1></a>
         @if (projects.length > 1)
-          <select onchange="location.href='/dashboard?project=' + encodeURIComponent(this.value) + '&status={{ statusFilter }}&range={{ rangeFilter }}'"
+          <select onchange="document.cookie = 'bughq_project=' + encodeURIComponent(this.value) + '; path=/; max-age=31536000; samesite=lax'; location.href = '{{ pageUrl({ page: 1 }) }}'"
                   class="panel mono px-3 py-1.5 text-sm" style="color: var(--text-2)">
             @foreach (projects as p)
               <option value="{{ p.id }}" {{ p.id === projectId ? 'selected' : '' }}>{{ p.name }}</option>
@@ -465,6 +474,18 @@ summary::-webkit-details-marker { display: none; }
     window.location.assign('/login')
   }
   var auth = { headers: { Authorization: 'Bearer ' + t } }
+
+  // Deep links may carry ?project= (create-app redirect, All apps cards,
+  // alert emails). The server already rendered that project; persist the
+  // choice into the cookie and scrub the param so the address bar stays a
+  // clean /dashboard.
+  var qs = new URLSearchParams(window.location.search)
+  if (qs.get('project')) {
+    document.cookie = 'bughq_project=' + encodeURIComponent(qs.get('project')) + '; path=/; max-age=31536000; samesite=lax'
+    qs.delete('project')
+    var rest = qs.toString()
+    window.history.replaceState(null, '', window.location.pathname + (rest ? '?' + rest : ''))
+  }
 
   // Setup panel: open by default for a fresh project; wire copy buttons.
   var setup = document.getElementById('setup-panel')

@@ -688,6 +688,12 @@ details.sysgroup[open] > summary .chev { transform: rotate(90deg); }
     window.location.reload()
     return
   }
+  // Viewing an issue makes its project the active one, so "Back to issues"
+  // (a clean /dashboard) lands on the right project - e.g. arriving from an
+  // alert email for a project you were not last browsing.
+  var proj = '{{ issue ? issue.project_id : '' }}'
+  if (proj)
+    document.cookie = 'bughq_project=' + encodeURIComponent(proj) + '; path=/; max-age=31536000; samesite=lax'
   var btn = document.querySelector('[data-copy-stack]')
   var raw = document.getElementById('raw-stack')
   if (btn && raw) {
