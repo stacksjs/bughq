@@ -308,25 +308,25 @@ const firstSeenAgo = issue ? fromNow(issue.first_seen) : ''
 :root {
   --bg:#f6f7f9; --panel:#ffffff; --panel-2:#fbfcfd; --border:rgba(15,23,42,0.08); --border-2:rgba(15,23,42,0.06);
   --text:#0b0f19; --text-2:#475569; --text-3:#8a94a6; --accent:#e11d48;
-  --code:#0f172a; --code-bg:#f8fafc; --app-tint:rgba(225,29,72,0.05); --app-bar:#e11d48;
+  --code:#0f172a; --code-bg:#f8fafc; --app-tint:rgba(225,29,72,0.07); --app-bar:#e11d48;
   --mono:'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     --bg:#0a0c12; --panel:#11141d; --panel-2:#0e111a; --border:rgba(148,163,184,0.12); --border-2:rgba(148,163,184,0.08);
     --text:#eef1f6; --text-2:#aab4c5; --text-3:#5f6b7e; --accent:#fb7185;
-    --code:#e5e9f0; --code-bg:#0b0e16; --app-tint:rgba(251,113,133,0.06); --app-bar:#fb7185;
+    --code:#e5e9f0; --code-bg:#0b0e16; --app-tint:rgba(251,113,133,0.1); --app-bar:#fb7185;
   }
 }
 :root[data-theme="dark"] {
   --bg:#0a0c12; --panel:#11141d; --panel-2:#0e111a; --border:rgba(148,163,184,0.12); --border-2:rgba(148,163,184,0.08);
   --text:#eef1f6; --text-2:#aab4c5; --text-3:#5f6b7e; --accent:#fb7185;
-  --code:#e5e9f0; --code-bg:#0b0e16; --app-tint:rgba(251,113,133,0.06); --app-bar:#fb7185;
+  --code:#e5e9f0; --code-bg:#0b0e16; --app-tint:rgba(251,113,133,0.1); --app-bar:#fb7185;
 }
 :root[data-theme="light"] {
   --bg:#f6f7f9; --panel:#ffffff; --panel-2:#fbfcfd; --border:rgba(15,23,42,0.08); --border-2:rgba(15,23,42,0.06);
   --text:#0b0f19; --text-2:#475569; --text-3:#8a94a6; --accent:#e11d48;
-  --code:#0f172a; --code-bg:#f8fafc; --app-tint:rgba(225,29,72,0.05); --app-bar:#e11d48;
+  --code:#0f172a; --code-bg:#f8fafc; --app-tint:rgba(225,29,72,0.07); --app-bar:#e11d48;
 }
 body { background: var(--bg); color: var(--text); font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; -webkit-font-smoothing: antialiased; }
 .card { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; }
@@ -334,10 +334,24 @@ body { background: var(--bg); color: var(--text); font-family: ui-sans-serif, sy
 .mono { font-family: var(--mono); }
 .pill { display:inline-flex; align-items:center; gap:.35rem; padding:.15rem .55rem; border-radius:999px; font-size:.7rem; font-weight:600; letter-spacing:.02em; }
 
+/* Severity chips: the one deliberately loud element on the page. Solid
+   saturated fills (they carry on both themes) with a soft matching glow so
+   the level reads instantly instead of blending into the panel. */
+.pill.lvl { color:#fff; font-weight:700; text-transform:uppercase; letter-spacing:.06em; background:#64748b; }
+.pill.lvl-fatal { background:#dc2626; box-shadow:0 0 16px rgba(220,38,38,.4); }
+.pill.lvl-error { background:#e11d48; box-shadow:0 0 16px rgba(225,29,72,.4); }
+.pill.lvl-warning { background:#d97706; box-shadow:0 0 14px rgba(217,119,6,.35); }
+.pill.lvl-info { background:#0284c7; }
+.pill.lvl-debug { background:#7c3aed; }
+/* Status is secondary to severity: outlined + tinted, not solid. */
+.pill.st-unresolved { color:var(--accent); background:color-mix(in srgb, var(--accent) 16%, transparent); border:1px solid color-mix(in srgb, var(--accent) 45%, transparent); }
+.pill.st-resolved { color:#22c55e; background:rgba(34,197,94,.14); border:1px solid rgba(34,197,94,.4); }
+.pill.st-ignored { color:var(--text-3); background:color-mix(in srgb, var(--text-3) 14%, transparent); border:1px solid color-mix(in srgb, var(--text-3) 35%, transparent); }
+
 /* Stack trace */
 .exc + .exc { margin-top: .75rem; }
 .exc-head { padding: 1rem 1.15rem .9rem; border-bottom:1px solid var(--border-2); }
-.exc-type { font-family: var(--mono); font-weight:600; font-size:.95rem; color:var(--accent); word-break:break-word; }
+.exc-type { font-family: var(--mono); font-weight:700; font-size:1rem; color:var(--accent); word-break:break-word; }
 .exc-msg { margin-top:.3rem; font-size:.95rem; line-height:1.5; color:var(--text); word-break:break-word; }
 .caused { display:inline-block; margin-bottom:.5rem; font-size:.68rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text-3); }
 .frames { padding:.35rem; }
@@ -345,7 +359,12 @@ body { background: var(--bg); color: var(--text); font-family: ui-sans-serif, sy
 .frame + .frame { margin-top:1px; }
 .frame.is-app { background: var(--app-tint); box-shadow: inset 2px 0 0 var(--app-bar); }
 .frame.is-sys { opacity:.62; }
-.frame.is-crash { box-shadow: inset 3px 0 0 var(--accent); }
+/* The crash frame is where the error actually happened — it gets the
+   strongest treatment on the page: warmer wash, thicker bar, accent
+   filename + location chip. */
+.frame.is-crash { background: color-mix(in srgb, var(--accent) 11%, transparent); box-shadow: inset 3px 0 0 var(--accent), 0 0 18px color-mix(in srgb, var(--accent) 12%, transparent); }
+.frame.is-crash .fr-base { color: var(--accent); }
+.frame.is-crash .fr-loc { background: color-mix(in srgb, var(--accent) 20%, transparent); color: var(--accent); font-weight:600; }
 .fr-main { min-width:0; flex:1; display:flex; align-items:baseline; gap:.4rem; flex-wrap:wrap; }
 .fr-base { color: var(--text); font-weight:600; flex-shrink:0; }
 .fr-dir { color: var(--text-3); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -404,11 +423,11 @@ details.sysgroup[open] > summary .chev { transform: rotate(90deg); }
       <!-- Header -->
       <header class="mb-6">
         <div class="flex items-start gap-3 mb-3">
-          <span class="rounded-full shrink-0 self-stretch" style="width:4px; background: {{ levelColor(issue.level) }}; min-height:2.6rem"></span>
+          <span class="rounded-full shrink-0 self-stretch" style="width:4px; background: {{ levelColor(issue.level) }}; min-height:2.6rem; box-shadow: 0 0 16px color-mix(in srgb, {{ levelColor(issue.level) }} 55%, transparent)"></span>
           <div class="min-w-0 flex-1">
             <div class="flex items-center gap-2 flex-wrap mb-1">
-              <span class="pill" style="color: {{ levelColor(issue.level) }}; background: color-mix(in srgb, {{ levelColor(issue.level) }} 15%, transparent)">{{ issue.level || 'error' }}</span>
-              <span class="pill" style="color: {{ isResolved ? '#16a34a' : (isIgnored ? 'var(--text-3)' : 'var(--accent)') }}; background: color-mix(in srgb, {{ isResolved ? '#16a34a' : (isIgnored ? '#64748b' : levelColor(issue.level)) }} 14%, transparent)">{{ status }}</span>
+              <span class="pill lvl lvl-{{ issue.level || 'error' }}">{{ issue.level || 'error' }}</span>
+              <span class="pill st-{{ status }}">{{ status }}</span>
               <span class="text-xs" style="color: var(--text-3)">Last seen {{ lastSeenAgo }}</span>
             </div>
             <h1 class="text-lg md:text-xl font-bold tracking-tight break-words" style="line-height:1.35">{{ issue.error_type || 'Error' }}</h1>
@@ -532,7 +551,7 @@ details.sysgroup[open] > summary .chev { transform: rotate(90deg); }
               <div class="card-head">Recent events <span style="color:var(--text-2)">{{ events.length }}</span></div>
               @forelse (events as ev)
                 <div class="flex items-center gap-3 px-4 py-2.5" style="border-top:1px solid var(--border-2)">
-                  <span class="shrink-0 rounded-full" style="width:7px; height:7px; background: {{ levelColor(ev.severity) }}"></span>
+                  <span class="shrink-0 rounded-full" style="width:7px; height:7px; background: {{ levelColor(ev.severity) }}; box-shadow: 0 0 8px color-mix(in srgb, {{ levelColor(ev.severity) }} 60%, transparent)"></span>
                   <div class="min-w-0 flex-1">
                     <div class="text-sm truncate">{{ ev.url || ev.environment || 'event' }}</div>
                     <div class="text-xs mono truncate" style="color: var(--text-3)">{{ [ev.browser, ev.os, ev.framework, ev.release].filter(Boolean).join(' · ') || ev.category || '-' }}</div>
@@ -559,7 +578,7 @@ details.sysgroup[open] > summary .chev { transform: rotate(90deg); }
                   <dt>{{ m.label }}</dt>
                   <dd>
                     @if (m.pill)
-                      <span class="pill" style="color: {{ levelColor(m.value) }}; background: color-mix(in srgb, {{ levelColor(m.value) }} 15%, transparent)">{{ m.value }}</span>
+                      <span class="pill lvl lvl-{{ m.value }}">{{ m.value }}</span>
                     @else
                       {{ m.value }}
                     @endif
