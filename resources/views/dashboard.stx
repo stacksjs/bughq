@@ -266,7 +266,21 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
 .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; }
 .row-link { transition: background-color 0.15s ease; }
 .row-link:hover { background: color-mix(in srgb, var(--accent) 5%, transparent); }
-.pill { border-radius: 999px; transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease; }
+.pill { border-radius: 999px; transition: color 0.15s ease, border-color 0.15s ease, background-color 0.15s ease, transform 0.12s ease; }
+/* Idle pills respond to hover; the ACTIVE tab carries inline accent styles
+   which outrank these rules, so it stays put. Disabled pager pills are spans
+   and never match. */
+a.pill:hover, button.pill:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); background: color-mix(in srgb, var(--accent) 6%, transparent); }
+a.pill:active, button.pill:active { transform: translateY(1px); }
+select.panel { transition: border-color 0.15s ease; cursor: pointer; }
+select.panel:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); }
+/* JS-injected chrome (Log out / Upgrade): inline styles cannot hover, so the
+   colors live here and the script only sets position/typography inline. */
+.chrome-logout { border: 1px solid var(--border); background: var(--panel); color: var(--text-2); transition: color 0.15s ease, border-color 0.15s ease; }
+.chrome-logout:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.chrome-upgrade { background: var(--accent); color: #fff; transition: filter 0.15s ease, transform 0.12s ease; }
+.chrome-upgrade:hover { filter: brightness(1.12); }
+.chrome-upgrade:active { transform: translateY(1px); }
 .reveal { opacity: 0; transform: translateY(10px); animation: reveal 0.5s cubic-bezier(0.16,1,0.3,1) forwards; }
 @keyframes reveal { to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .reveal { animation: none; opacity: 1; transform: none; } }
@@ -472,11 +486,13 @@ summary::-webkit-details-marker { display: none; }
   // Chrome: logout + upgrade/plan badge.
   var btn = document.createElement('button')
   btn.textContent = 'Log out'
-  btn.style.cssText = 'position:fixed;top:16px;right:18px;font:500 13px/1 var(--sans,ui-sans-serif);padding:8px 13px;border-radius:9px;border:1px solid var(--border,rgba(148,163,184,0.2));background:var(--panel,#fff);color:var(--text-2,#555);cursor:pointer;z-index:60'
+  btn.className = 'chrome-logout'
+  btn.style.cssText = 'position:fixed;top:16px;right:18px;font:500 13px/1 var(--sans,ui-sans-serif);padding:8px 13px;border-radius:9px;cursor:pointer;z-index:60'
   btn.addEventListener('click', signOut)
   var up = document.createElement('a')
   up.textContent = 'Upgrade'; up.href = '/pricing'
-  up.style.cssText = 'position:fixed;top:16px;right:112px;font:600 13px/1 var(--sans,ui-sans-serif);padding:8px 13px;border-radius:9px;background:var(--accent);color:#fff;text-decoration:none;z-index:60'
+  up.className = 'chrome-upgrade'
+  up.style.cssText = 'position:fixed;top:16px;right:112px;font:600 13px/1 var(--sans,ui-sans-serif);padding:8px 13px;border-radius:9px;text-decoration:none;z-index:60'
   document.body.appendChild(up); document.body.appendChild(btn)
 
   fetch('/api/me', auth)
