@@ -13,6 +13,32 @@ import { response, route } from '@stacksjs/router'
 import { notifyIssueOpened } from '../app/Errors/alerts'
 import { categorize, culprit, fingerprint, fingerprintFromParts, issueTitle, randomId } from '../app/Errors/fingerprint'
 import { authorizeIngest } from '../app/Errors/ingest'
+import { allowAlert, rateLimit } from '../app/Errors/limits'
+
+// Ingest abuse bounds. The public key gate is not enough on its own - a script
+// with the key (readable from any bundle) could flood the ingest.
+const MAX_BODY_BYTES = 256 * 1024 // reject payloads larger than this outright
+const MAX_MESSAGE = 4096 // stored message cap
+const MAX_STACK = 24 * 1024 // stored stack cap
+const MAX_METADATA_BYTES = 96 * 1024 // stored metadata JSON cap
+const MAX_BREADCRUMBS = 100 // keep the most recent N
+// Fixed-window quotas (per process): per project, and per client IP across
+// projects. Generous enough for a real error storm's client-deduped traffic,
+// tight enough to kill a Postman flood.
+const PROJECT_LIMIT = 120
+const IP_LIMIT = 300
+const RATE_WINDOW_MS = 10_000
+
+function clientIp(request: any): string {
+  const xff = request.headers?.get('x-forwarded-for')
+  if (xff)
+    return String(xff).split(',')[0].trim()
+  return request.headers?.get('x-real-ip') || request.ip || 'unknown'
+}
+
+function clip(value: string, max: number): string {
+  return value.length > max ? `${value.slice(0, max)}…[truncated]` : value
+}
 
 /**
  * Bundle the SDK's rich fields into a single JSON blob stored in
@@ -28,15 +54,30 @@ function buildMetadata(body: any): string | null {
     meta.tags = body.tags
   if (body.contexts && typeof body.contexts === 'object')
     meta.contexts = body.contexts
+  // Keep only the most recent breadcrumbs so a client can't balloon the row.
   if (Array.isArray(body.breadcrumbs) && body.breadcrumbs.length)
-    meta.breadcrumbs = body.breadcrumbs
+    meta.breadcrumbs = body.breadcrumbs.slice(-MAX_BREADCRUMBS)
   if (body.sdk && typeof body.sdk === 'object')
     meta.sdk = body.sdk
   if (body.session && typeof body.session === 'object')
     meta.session = body.session
   if (body.timestamp)
     meta.client_timestamp = body.timestamp
-  return Object.keys(meta).length ? JSON.stringify(meta) : null
+  if (!Object.keys(meta).length)
+    return null
+  const serialized = JSON.stringify(meta)
+  // Hard size ceiling on the whole blob: if a caller stuffs huge extra/tags,
+  // drop the free-form fields and keep the small structured ones rather than
+  // storing an unbounded document.
+  if (serialized.length <= MAX_METADATA_BYTES)
+    return serialized
+  const trimmed = JSON.stringify({
+    sdk: meta.sdk,
+    session: meta.session,
+    client_timestamp: meta.client_timestamp,
+    _truncated: 'oversized metadata dropped',
+  })
+  return trimmed
 }
 
 const CORS = {
@@ -46,8 +87,8 @@ const CORS = {
   'Access-Control-Max-Age': '86400',
 }
 
-function json(data: unknown, status = 200): Response {
-  return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', ...CORS } })
+function json(data: unknown, status = 200, extraHeaders: Record<string, string> = {}): Response {
+  return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', ...CORS, ...extraHeaders } })
 }
 
 // Resolve the current user from a bearer token (API calls) or the `token`
@@ -98,10 +139,24 @@ async function ownsProject(user: any, projectId: string): Promise<boolean> {
 route.options('/errors', () => new Response(null, { status: 204, headers: CORS }))
 
 route.post('/errors', async (request: any) => {
+  // Size cap first: reject oversized payloads before any work. Trust the
+  // Content-Length header for the cheap early-out; the router already parsed
+  // the body, but rejecting here still bounds what we store and validate.
+  const declaredLen = Number(request.headers?.get('content-length') || 0)
+  if (declaredLen > MAX_BODY_BYTES)
+    return json({ error: 'payload too large' }, 413)
+
   const body = request.jsonBody ?? {}
   const projectId = body.project ?? body.p
   if (!projectId || !body.message)
     return json({ error: 'missing project or message' }, 400)
+
+  // Per-IP quota across all projects (blunts a broad flood before we even hit
+  // the DB for the project lookup).
+  const ip = clientIp(request)
+  const ipLimit = rateLimit(`ip:${ip}`, IP_LIMIT, RATE_WINDOW_MS)
+  if (!ipLimit.ok)
+    return json({ error: 'rate limited' }, 429, { 'Retry-After': String(ipLimit.retryAfter) })
 
   // Authorize: the report must present the project's ingest key.
   const providedKey = request.headers?.get('x-bughq-key') ?? body.key ?? null
@@ -113,10 +168,18 @@ route.post('/errors', async (request: any) => {
   if (!auth.ok)
     return json({ error: auth.error }, auth.status)
 
+  // Per-project quota: the meaningful abuse dimension (a flood targets one
+  // project's key). Keyed after auth so an invalid key can't consume a
+  // project's budget.
+  const projLimit = rateLimit(`proj:${projectId}`, PROJECT_LIMIT, RATE_WINDOW_MS)
+  if (!projLimit.ok)
+    return json({ error: 'rate limited' }, 429, { 'Retry-After': String(projLimit.retryAfter) })
+
   const now = new Date().toISOString()
-  const errorType = body.type ?? body.error_type ?? 'Error'
-  const message = String(body.message)
-  const stack = body.stack ? String(body.stack) : undefined
+  const errorType = clip(String(body.type ?? body.error_type ?? 'Error'), 255)
+  // Bound stored strings server-side: never trust the SDK's client-side caps.
+  const message = clip(String(body.message), MAX_MESSAGE)
+  const stack = body.stack ? clip(String(body.stack), MAX_STACK) : undefined
   // A client may force grouping with an explicit `fingerprint` array; otherwise
   // we derive one from type + normalized message + top stack frame.
   const fpOverride = Array.isArray(body.fingerprint) && body.fingerprint.length
@@ -142,7 +205,8 @@ route.post('/errors', async (request: any) => {
     )
     // A resolved issue coming back is a regression — the one repeat occurrence
     // worth an email. Fire-and-forget: mail transport must never slow ingest.
-    if (String(existing.status) === 'resolved') {
+    // Gated by the per-project alert throttle so a flood can't email-bomb.
+    if (String(existing.status) === 'resolved' && allowAlert(String(projectId))) {
       notifyIssueOpened(String(projectId), {
         id: issueId,
         title: issueTitle(errorType, message),
@@ -171,14 +235,18 @@ route.post('/errors', async (request: any) => {
       first_seen: now,
       last_seen: now,
     }).execute()
-    // First occurrence of a brand-new issue: alert the project owner.
-    notifyIssueOpened(String(projectId), {
-      id: issueId,
-      title,
-      culprit: where,
-      level: body.level ?? 'error',
-      environment: body.environment ?? null,
-    }, 'new').catch(err => console.error('[alerts] new-issue email failed:', err instanceof Error ? err.message : err))
+    // First occurrence of a brand-new issue: alert the project owner, unless
+    // the per-project alert throttle has already fired too many this hour
+    // (a flood of unique messages would otherwise be an email bomb).
+    if (allowAlert(String(projectId))) {
+      notifyIssueOpened(String(projectId), {
+        id: issueId,
+        title,
+        culprit: where,
+        level: body.level ?? 'error',
+        environment: body.environment ?? null,
+      }, 'new').catch(err => console.error('[alerts] new-issue email failed:', err instanceof Error ? err.message : err))
+    }
   }
 
   await db.insertInto('error_events').values({
