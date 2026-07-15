@@ -55,14 +55,32 @@ if (token) {
 let projects = []
 let activeProject = null
 let needsOnboarding = false
+let pendingInvites = []
 if (user) {
+  // The user's own projects plus any they've been invited to (matched by email),
+  // so shared projects appear in the switcher just like owned ones.
+  const userEmail = String(user.email || '').trim().toLowerCase()
   projects = (await db.unsafe(
-    'SELECT id, name, platform, ingest_key FROM projects WHERE owner_id = $1 ORDER BY created_at DESC NULLS LAST, id',
-    [Number(user.id)],
+    `SELECT DISTINCT p.id, p.name, p.platform, p.ingest_key, p.created_at,
+            (p.owner_id = $1) AS is_owner
+     FROM projects p
+     LEFT JOIN project_members m ON m.project_id = p.id AND lower(m.email) = $2
+     WHERE p.owner_id = $1 OR m.email IS NOT NULL
+     ORDER BY p.created_at DESC NULLS LAST, p.id`,
+    [Number(user.id), userEmail],
   )) ?? []
-  if (projects.length === 0)
+  // Pending invitations addressed to this user's email, surfaced as a banner
+  // with a Join button. A brand-new user who signed up via an invite link has
+  // no projects yet — show the banner instead of forcing them to create one.
+  pendingInvites = (await db.unsafe(
+    `SELECT i.token, p.name AS project_name FROM project_invites i
+     JOIN projects p ON p.id = i.project_id
+     WHERE lower(i.email) = $1 ORDER BY i.created_at ASC NULLS LAST`,
+    [userEmail],
+  )) ?? []
+  if (projects.length === 0 && pendingInvites.length === 0)
     needsOnboarding = true
-  else
+  else if (projects.length > 0)
     activeProject = projects.find(p => p.id === requestedProject) || projects.find(p => p.id === cookieProject) || projects[0]
 }
 const projectId = activeProject?.id || null
@@ -159,60 +177,61 @@ catch {
 }
 
 // Framework-specific install instructions, keyed off the project's platform.
-// Install guides are host-free by design: the SDKs (and the served snippet)
-// default to the bughq ingest, so integrating is only ever project + key.
+// Install is key-only: the ingest key is globally unique, so it identifies the
+// project on its own (Flare-style) — no project id, no DSN. The SDKs default to
+// the bughq ingest host, so integrating is only ever a single key.
 // TEMPORARY: the snippet src points at the local ingest during the local-dev
 // phase; switch back to https://bughq.org/sdk.js at launch.
-function installGuide(platform, project, key) {
+function installGuide(platform, key) {
   const p = String(platform || 'javascript').toLowerCase()
-  const scriptTag = `<script src="http://localhost:3108/sdk.js"\n        data-project="${project}"\n        data-key="${key}"><\/script>`
+  const scriptTag = `<script src="http://localhost:3108/sdk.js"\n        data-key="${key}"><\/script>`
   if (p === 'vue') {
     return {
       label: 'Vue',
       install: 'bun add @bughq/vue',
-      code: `import BugHQ from '@bughq/vue'\n\napp.use(BugHQ, {\n  project: '${project}',\n  key: '${key}',\n})`,
+      code: `import BugHQ from '@bughq/vue'\n\napp.use(BugHQ, { key: '${key}' })`,
     }
   }
   if (p === 'nuxt') {
     return {
       label: 'Nuxt',
       install: 'bun add @bughq/nuxt',
-      code: `// nuxt.config.ts\nexport default defineNuxtConfig({\n  modules: ['@bughq/nuxt'],\n  bughq: { project: '${project}', key: '${key}' },\n})`,
+      code: `// nuxt.config.ts\nexport default defineNuxtConfig({\n  modules: ['@bughq/nuxt'],\n  bughq: { key: '${key}' },\n})`,
     }
   }
   if (p === 'node') {
     return {
       label: 'Node.js',
       install: 'bun add @bughq/sdk',
-      code: `import { bughq } from '@bughq/sdk'\n\nbughq.init({\n  project: '${project}',\n  key: '${key}',\n})`,
+      code: `import { bughq } from '@bughq/sdk'\n\nbughq.init({ key: '${key}' })`,
     }
   }
   if (p === 'react') {
     return {
       label: 'React',
       install: 'bun add @bughq/sdk',
-      code: `import { bughq } from '@bughq/sdk'\n\nbughq.init({ project: '${project}', key: '${key}' })\n// then capture render errors from an ErrorBoundary`,
+      code: `import { bughq } from '@bughq/sdk'\n\nbughq.init({ key: '${key}' })\n// then capture render errors from an ErrorBoundary`,
     }
   }
   if (p === 'laravel') {
     return {
       label: 'Laravel',
       install: 'composer require bughq/bughq-laravel',
-      code: `# .env\nBUGHQ_PROJECT=${project}\nBUGHQ_KEY=${key}\n\n# exceptions, failed jobs, and breadcrumbs are captured automatically`,
+      code: `# .env\nBUGHQ_KEY=${key}\n\n# exceptions, failed jobs, and breadcrumbs are captured automatically`,
     }
   }
   if (p === 'php') {
     return {
       label: 'PHP',
       install: 'composer require bughq/bughq',
-      code: `use BugHQ\\BugHQ;\n\nBugHQ::init([\n    'project' => '${project}',\n    'key' => '${key}',\n]);`,
+      code: `use BugHQ\\BugHQ;\n\nBugHQ::init(['key' => '${key}']);`,
     }
   }
   // javascript / browser / other — drop-in script tag
   return { label: 'HTML', install: '', code: scriptTag }
 }
 const guide = activeProject
-  ? installGuide(activeProject.platform, activeProject.id, activeProject.ingest_key)
+  ? installGuide(activeProject.platform, activeProject.ingest_key)
   : null
 
 // Severity drives the one accent-adjacent semantic color used on the list rail.
@@ -297,7 +316,16 @@ summary { list-style: none; cursor: pointer; }
 summary::-webkit-details-marker { display: none; }
 .copy-btn { position: absolute; top: 8px; right: 8px; font: 500 11px/1 var(--sans); padding: 5px 9px; border-radius: 7px; border: 1px solid var(--border); background: var(--panel); color: var(--text-3); cursor: pointer; }
 .copy-btn:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 9px; color: var(--text-2); background: var(--panel); cursor: pointer; transition: color 0.15s ease, border-color 0.15s ease; }
+.icon-btn:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.icon-btn svg { width: 17px; height: 17px; }
+.theme-btn .ic-sun, .theme-btn .ic-moon { display: none; }
+.theme-btn[data-t="light"] .ic-sun { display: block; }
+.theme-btn[data-t="dark"] .ic-moon { display: block; }
 </style>
+
+<!-- Apply the saved theme before first paint (no flash of the wrong theme). -->
+<script>(function(){try{var t=localStorage.getItem('bughq_theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}})()</script>
 
 <div class="min-h-[100dvh] px-5 py-10 md:px-10">
   <div class="max-w-5xl mx-auto">
@@ -312,6 +340,22 @@ summary::-webkit-details-marker { display: none; }
     @endif
 
     @if (user && !needsOnboarding)
+
+    @if (pendingInvites.length)
+      <div id="invite-banner" class="mb-7">
+        @foreach (pendingInvites as inv)
+          <div class="panel flex flex-wrap items-center gap-3 px-5 py-3.5 mb-2.5" style="border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); background: color-mix(in srgb, var(--accent) 6%, var(--panel))" data-token="{{ inv.token }}">
+            <span class="text-sm">🎉 You've been invited to <span class="font-semibold">{{ inv.project_name }}</span>.</span>
+            <div class="ml-auto flex items-center gap-2">
+              <button class="js-invite-join pill px-4 py-1.5 text-sm font-semibold border" style="color:#fff; background:var(--accent); border-color:var(--accent)">Join</button>
+              <button class="js-invite-dismiss pill px-3 py-1.5 text-sm border" style="color:var(--text-3); border-color:var(--border)" title="Hide for now">Dismiss</button>
+            </div>
+          </div>
+        @endforeach
+      </div>
+    @endif
+
+    @if (projectId)
     <header class="flex flex-wrap items-end justify-between gap-5 mb-10">
       <div class="flex items-center gap-3">
         <a href="/projects" class="wordmark-link"><h1 class="wordmark text-2xl md:text-[28px] leading-none">bughq</h1></a>
@@ -327,6 +371,13 @@ summary::-webkit-details-marker { display: none; }
         @endif
         <a href="/projects" class="pill px-3 py-1.5 text-sm font-medium border" style="color: var(--text-2); border-color: var(--border)">All apps</a>
         <a href="/projects/new" class="pill px-3 py-1.5 text-sm font-medium border" style="color: var(--text-2); border-color: var(--border)">+ New app</a>
+        <button id="theme-toggle" class="icon-btn theme-btn" title="Toggle theme" aria-label="Toggle theme">
+          <svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg class="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+        <a href="/settings" data-no-router class="icon-btn" title="Settings" aria-label="Settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </a>
       </div>
       <nav class="flex flex-wrap items-center gap-1.5">
         @foreach (statusTabs as f)
@@ -434,6 +485,12 @@ summary::-webkit-details-marker { display: none; }
         </div>
       @endif
     </section>
+    @else
+      <div class="text-center py-20">
+        <a href="/projects" data-no-router class="wordmark-link"><h1 class="wordmark text-2xl mb-3">bughq</h1></a>
+        <p class="text-sm" style="color: var(--text-3)">Accept an invitation above to get started, or <a href="/projects/new" data-no-router style="color: var(--accent)">create your own app</a>.</p>
+      </div>
+    @endif
     @endif
 
     <footer class="mt-12 text-center text-xs" style="color: var(--text-3)">
@@ -485,6 +542,42 @@ summary::-webkit-details-marker { display: none; }
     qs.delete('project')
     var rest = qs.toString()
     window.history.replaceState(null, '', window.location.pathname + (rest ? '?' + rest : ''))
+  }
+
+  // Invite banner: Join accepts the invite (owner-scoped server-side), then
+  // switches to that project. Dismiss just hides it for this view.
+  var inviteBanner = document.getElementById('invite-banner')
+  if (inviteBanner) inviteBanner.addEventListener('click', function (e) {
+    var row = e.target.closest('[data-token]')
+    if (!row) return
+    if (e.target.classList.contains('js-invite-dismiss')) { row.remove(); return }
+    if (!e.target.classList.contains('js-invite-join')) return
+    var jbtn = e.target
+    jbtn.disabled = true; jbtn.textContent = 'Joining…'
+    fetch('/api/invites/accept', { method: 'POST', headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' }, body: JSON.stringify({ token: row.getAttribute('data-token') }) })
+      .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b } }) })
+      .then(function (res) {
+        if (!res.ok) { jbtn.disabled = false; jbtn.textContent = 'Join'; return }
+        document.cookie = 'bughq_project=' + encodeURIComponent(res.b.project) + '; path=/; max-age=31536000; samesite=lax'
+        window.location.assign('/dashboard')
+      })
+      .catch(function () { jbtn.disabled = false; jbtn.textContent = 'Join' })
+  })
+
+  // Theme toggle (light/dark, persisted per device). Defaults to the system
+  // preference until the user picks one, then that choice sticks.
+  var themeBtn = document.getElementById('theme-toggle')
+  if (themeBtn) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)')
+    var effTheme = function () { return document.documentElement.getAttribute('data-theme') || (mq.matches ? 'dark' : 'light') }
+    var paintTheme = function () { themeBtn.setAttribute('data-t', effTheme()) }
+    paintTheme()
+    themeBtn.addEventListener('click', function () {
+      var next = effTheme() === 'dark' ? 'light' : 'dark'
+      document.documentElement.setAttribute('data-theme', next)
+      try { localStorage.setItem('bughq_theme', next) } catch (e) {}
+      paintTheme()
+    })
   }
 
   // Setup panel: open by default for a fresh project; wire copy buttons.

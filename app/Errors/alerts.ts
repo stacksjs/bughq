@@ -1,14 +1,17 @@
 import { db } from '@stacksjs/database'
 import { mail } from '@stacksjs/email'
+import { notifyChannels } from './channels'
 
 /**
- * Issue email alerts. Fired by the ingest for the two moments worth a human's
+ * Issue alerts. Fired by the ingest for the two moments worth a human's
  * attention: an issue's FIRST occurrence, and a resolved issue coming back
- * (regression). Repeat occurrences only bump the counter and never email, so
+ * (regression). Repeat occurrences only bump the counter and never alert, so
  * an error storm produces exactly one message.
  *
- * Alerts are best-effort: callers fire-and-forget so a slow or failing mail
- * transport can never delay or break the ingest path.
+ * `dispatchAlerts` fans a single alert out to every destination — the owner
+ * email plus any Slack/Discord channels on the project. Alerts are best-effort:
+ * callers fire-and-forget so a slow or failing transport can never delay or
+ * break the ingest path.
  */
 
 // TEMPORARY: local-dev phase; switch to https://bughq.org at launch.
@@ -16,7 +19,7 @@ const DASHBOARD_BASE = 'http://localhost:3100'
 
 export type AlertKind = 'new' | 'regression'
 
-interface AlertIssue {
+export interface AlertIssue {
   id: string
   title: string
   culprit?: string | null
@@ -75,6 +78,21 @@ export async function notifyIssueOpened(projectId: string, issue: AlertIssue, ki
 </div>`
 
   await mail.send({ to: String(owner.email), subject, text, html })
+}
+
+/**
+ * Fan a single alert out to every destination for the project: the owner email
+ * and each enabled Slack/Discord channel. Each leg is independent (Promise
+ * .allSettled) so one failing transport can't suppress the others, and the
+ * whole thing is fire-and-forget from the ingest's perspective. Gate the CALL
+ * with the per-project alert throttle (allowAlert) so this fires at most once
+ * per throttle window, not once per transport.
+ */
+export async function dispatchAlerts(projectId: string, issue: AlertIssue, kind: AlertKind): Promise<void> {
+  await Promise.allSettled([
+    notifyIssueOpened(projectId, issue, kind),
+    notifyChannels(projectId, issue, kind),
+  ])
 }
 
 function escapeHtml(value: string): string {

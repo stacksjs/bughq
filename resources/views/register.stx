@@ -37,8 +37,11 @@ async function handleSubmit(e) {
     document.cookie = `bughq_token=${token}; path=/; max-age=2592000; samesite=lax`
     if (data.user)
       localStorage.setItem('user', JSON.stringify(data.user))
-    // New accounts have no apps yet: go straight to the create-app screen.
-    navigate('/projects/new')
+    // New accounts have no apps yet: go to create-app — unless they arrived from
+    // an invite link, in which case land on the dashboard where the join banner
+    // is waiting for them to accept.
+    const invited = new URLSearchParams(typeof location !== 'undefined' ? location.search : '').get('invite')
+    navigate(invited ? '/dashboard' : '/projects/new')
   }
   catch {
     error.set('Something went wrong. Please try again.')
@@ -132,3 +135,28 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
     </p>
   </div>
 </div>
+
+<!-- Prefill the email from an invite link (/register?email=…&invite=…) and show
+     an invite hint, so the invitee signs up as the exact person invited. -->
+<script>
+(function () {
+  try {
+    var p = new URLSearchParams(location.search)
+    var email = p.get('email')
+    if (email) {
+      var el = document.querySelector('input[name="email"]')
+      if (el) { el.value = email; el.setAttribute('readonly', 'readonly'); el.style.opacity = '0.85' }
+    }
+    if (p.get('invite')) {
+      var form = document.querySelector('form')
+      if (form) {
+        var hint = document.createElement('p')
+        hint.textContent = "You've been invited to a project — sign up to join it."
+        hint.style.cssText = 'font-size:13px;margin:0 0 14px;padding:9px 12px;border-radius:9px;color:var(--accent);background:color-mix(in srgb, var(--accent) 10%, transparent);border:1px solid color-mix(in srgb, var(--accent) 35%, var(--border))'
+        form.parentNode.insertBefore(hint, form)
+      }
+    }
+  }
+  catch (e) {}
+})()
+</script>

@@ -62,7 +62,16 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
 .btn:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
 .btn-ghost { border: 1px solid var(--border); color: var(--text); border-radius: 10px; }
 .btn-ghost:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 1px solid var(--border); border-radius: 10px; color: var(--text-3); background: var(--panel); cursor: pointer; transition: color .15s ease, border-color .15s ease; }
+.icon-btn:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.icon-btn svg { width: 18px; height: 18px; }
+.theme-btn .ic-sun, .theme-btn .ic-moon { display: none; }
+.theme-btn[data-t="light"] .ic-sun { display: block; }
+.theme-btn[data-t="dark"] .ic-moon { display: block; }
 </style>
+
+<!-- Apply the saved theme before first paint (no flash of the wrong theme). -->
+<script>(function(){try{var t=localStorage.getItem('bughq_theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}})()</script>
 
 <div class="min-h-[100dvh] px-5 py-10 md:px-10">
   <div class="max-w-4xl mx-auto">
@@ -73,6 +82,10 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
         <p class="text-sm mt-2" style="color: var(--text-3)">Pick an app to track, or create a new one.</p>
       </div>
       <div class="flex items-center gap-2.5">
+        <button id="theme-toggle" class="icon-btn theme-btn" title="Toggle theme" aria-label="Toggle theme">
+          <svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg class="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
         <a href="/projects/new" class="btn px-4 py-2 text-sm font-semibold">+ New app</a>
         <button id="logout" class="btn-ghost px-3.5 py-2 text-sm font-medium" style="background: var(--panel)">Log out</button>
       </div>
@@ -122,6 +135,21 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
     window.location.reload()
     return
   }
+  // Theme toggle (light/dark, persisted per device).
+  var themeBtn = document.getElementById('theme-toggle')
+  if (themeBtn) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)')
+    var effTheme = function () { return document.documentElement.getAttribute('data-theme') || (mq.matches ? 'dark' : 'light') }
+    var paintTheme = function () { themeBtn.setAttribute('data-t', effTheme()) }
+    paintTheme()
+    themeBtn.addEventListener('click', function () {
+      var next = effTheme() === 'dark' ? 'light' : 'dark'
+      document.documentElement.setAttribute('data-theme', next)
+      try { localStorage.setItem('bughq_theme', next) } catch (e) {}
+      paintTheme()
+    })
+  }
+
   var btn = document.getElementById('logout')
   if (btn) btn.addEventListener('click', function () {
     localStorage.removeItem('token'); localStorage.removeItem('user')

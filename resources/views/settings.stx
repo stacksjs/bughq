@@ -1,0 +1,547 @@
+<script server>
+// Per-project settings (owner-only admin surface): the API key, team members,
+// Slack/Discord alerts, and deletion. Authenticates from the bughq_token cookie
+// and resolves the active project from the bughq_project cookie (same browsing
+// preference the dashboard uses), scoped to projects the user OWNS — members can
+// view/triage issues but only an owner administers a project. Reads happen here
+// server-side; mutations go client-side to the owner-scoped /api endpoints.
+const meta = { title: 'bughq - Settings', description: 'Error tracking' }
+
+const { db } = await import('@stacksjs/database')
+
+const query = new URLSearchParams((typeof globalThis !== 'undefined' && globalThis.__stxServeSearch) || '')
+const requestedProject = query.get('project')
+const cookieProject = (typeof requestContext !== 'undefined' && requestContext.cookie && requestContext.cookie('bughq_project')) || ''
+
+const token = (typeof requestContext !== 'undefined' && requestContext.cookie && requestContext.cookie('bughq_token')) || ''
+let user = null
+if (token) {
+  try {
+    const { Auth } = await import('@stacksjs/auth')
+    user = await Auth.getUserFromToken(token)
+  }
+  catch { user = null }
+}
+
+let projects = []
+let activeProject = null
+let needsOnboarding = false
+let channels = []
+let members = []
+let invites = []
+if (user) {
+  // Owned projects only — settings is the owner's admin surface.
+  projects = (await db.unsafe(
+    'SELECT id, name, ingest_key FROM projects WHERE owner_id = $1 ORDER BY created_at DESC NULLS LAST, id',
+    [Number(user.id)],
+  )) ?? []
+  if (projects.length === 0)
+    needsOnboarding = true
+  else
+    activeProject = projects.find(p => p.id === requestedProject) || projects.find(p => p.id === cookieProject) || projects[0]
+
+  if (activeProject) {
+    channels = (await db.unsafe(
+      `SELECT id, type, label, webhook_url, enabled, created_at
+       FROM alert_channels WHERE project_id = $1 ORDER BY created_at DESC NULLS LAST, id`,
+      [activeProject.id],
+    )) ?? []
+    members = (await db.unsafe(
+      `SELECT m.id, m.email, m.role FROM project_members m
+       WHERE m.project_id = $1 ORDER BY m.created_at ASC NULLS LAST, m.email`,
+      [activeProject.id],
+    )) ?? []
+    invites = (await db.unsafe(
+      `SELECT i.id, i.email, i.token, (u.id IS NOT NULL) AS registered
+       FROM project_invites i LEFT JOIN users u ON lower(u.email) = lower(i.email)
+       WHERE i.project_id = $1 ORDER BY i.created_at ASC NULLS LAST, i.email`,
+      [activeProject.id],
+    )) ?? []
+  }
+}
+const projectId = activeProject?.id || null
+const ownerEmail = (user && user.email) || ''
+
+function maskWebhook(url) {
+  try {
+    const u = new URL(url)
+    return u.host + '/…' + String(url).slice(-4)
+  }
+  catch { return '…' }
+}
+function maskKey(k) {
+  const s = String(k || '')
+  return s.length > 16 ? s.slice(0, 10) + '……' + s.slice(-4) : s
+}
+const channelView = channels.map(c => ({
+  id: c.id,
+  type: c.type,
+  label: c.label || (c.type === 'slack' ? 'Slack' : 'Discord'),
+  enabled: !!c.enabled,
+  mask: maskWebhook(c.webhook_url),
+}))
+const JOIN_BASE = 'http://localhost:3100/join/'
+const memberView = members.map(m => ({ id: m.id, email: m.email }))
+const inviteView = invites.map(i => ({ id: i.id, email: i.email, registered: !!i.registered, join: JOIN_BASE + i.token }))
+const keyFull = activeProject ? String(activeProject.ingest_key || '') : ''
+const keyMask = maskKey(keyFull)
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+
+<style>
+:root {
+  --bg: #fbfbfd; --panel: #ffffff; --border: rgba(15,23,42,0.09);
+  --text: #0b0f19; --text-2: #4b5565; --text-3: #97a1b2; --accent: #e11d48;
+  --slack: #611f69; --discord: #5865f2; --ok: #16a34a; --warn: #b91c1c;
+  --sans: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif; --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #090b11; --panel: #10131c; --border: rgba(148,163,184,0.12);
+    --text: #f3f5f9; --text-2: #b3bccb; --text-3: #667085; --accent: #fb7185;
+    --discord: #818cf8; --ok: #4ade80; --warn: #f87171; }
+}
+:root[data-theme="dark"] { --bg: #090b11; --panel: #10131c; --border: rgba(148,163,184,0.12);
+  --text: #f3f5f9; --text-2: #b3bccb; --text-3: #667085; --accent: #fb7185; --discord: #818cf8; --ok: #4ade80; --warn: #f87171; }
+:root[data-theme="light"] { --bg: #fbfbfd; --panel: #ffffff; --border: rgba(15,23,42,0.09);
+  --text: #0b0f19; --text-2: #4b5565; --text-3: #97a1b2; --accent: #e11d48; --discord: #5865f2; --ok: #16a34a; --warn: #b91c1c; }
+html { scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--text); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+.mono { font-family: var(--mono); }
+.wordmark { font-weight: 700; letter-spacing: -0.03em; }
+.wordmark-link { color: inherit; text-decoration: none; transition: opacity 0.15s ease; }
+.wordmark-link:hover { opacity: 0.75; }
+.panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; }
+.sec { scroll-margin-top: 84px; }
+.sec-title { font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-3); }
+.btn { background: var(--accent); color: #fff; border-radius: 10px; transition: background 0.15s ease, opacity 0.15s ease; }
+.btn:hover { background: color-mix(in srgb, var(--accent) 88%, #000); }
+.btn:disabled { opacity: 0.55; cursor: default; }
+.btn-ghost { border: 1px solid var(--border); color: var(--text-2); border-radius: 9px; background: var(--panel); transition: color 0.15s ease, border-color 0.15s ease; }
+.btn-ghost:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.btn-danger { border: 1px solid color-mix(in srgb, var(--warn) 45%, var(--border)); color: var(--warn); border-radius: 9px; background: var(--panel); transition: all 0.15s ease; }
+.btn-danger:hover { color: #fff; background: var(--warn); border-color: var(--warn); }
+.field { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; color: var(--text); }
+.field:focus { outline: none; border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.badge { border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.02em; padding: 2px 9px; }
+.badge-slack { color: #fff; background: var(--slack); }
+.badge-discord { color: #fff; background: var(--discord); }
+.badge-soft { background: color-mix(in srgb, var(--accent) 14%, var(--panel)); color: var(--accent); }
+.badge-owner { background: color-mix(in srgb, var(--accent) 16%, var(--panel)); color: var(--accent); }
+.badge-pending { background: color-mix(in srgb, var(--text-3) 18%, var(--panel)); color: var(--text-2); }
+.tgl { width: 38px; height: 22px; border-radius: 999px; background: var(--border); position: relative; transition: background 0.15s ease; cursor: pointer; flex: none; }
+.tgl::after { content: ''; position: absolute; top: 2px; left: 2px; width: 18px; height: 18px; border-radius: 999px; background: #fff; transition: transform 0.15s ease; }
+.tgl[data-on="1"] { background: var(--ok); }
+.tgl[data-on="1"]::after { transform: translateX(16px); }
+.seg { border: 1px solid var(--border); border-radius: 10px; color: var(--text-2); background: var(--panel); transition: all 0.12s ease; }
+.seg[data-sel="1"] { color: #fff; border-color: transparent; }
+.seg-slack[data-sel="1"] { background: var(--slack); }
+.seg-discord[data-sel="1"] { background: var(--discord); }
+.note { display: none; }
+.note.show { display: block; }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 9px; color: var(--text-2); background: var(--panel); cursor: pointer; transition: color .15s ease, border-color .15s ease; }
+.icon-btn:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.icon-btn svg { width: 17px; height: 17px; }
+.theme-btn .ic-sun, .theme-btn .ic-moon { display: none; }
+.theme-btn[data-t="light"] .ic-sun { display: block; }
+.theme-btn[data-t="dark"] .ic-moon { display: block; }
+.tabnav a { color: var(--text-2); border: 1px solid var(--border); border-radius: 999px; transition: color .15s ease, border-color .15s ease; }
+.tabnav a:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.danger-panel { border-color: color-mix(in srgb, var(--warn) 40%, var(--border)); }
+</style>
+
+<!-- Apply the saved theme before first paint (no flash of the wrong theme). -->
+<script>(function(){try{var t=localStorage.getItem('bughq_theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}})()</script>
+
+<div class="min-h-[100dvh] px-5 py-10 md:px-10">
+  <div class="max-w-2xl mx-auto">
+
+    <header class="flex items-center justify-between gap-4 mb-7">
+      <a href="/projects" data-no-router class="wordmark-link"><h1 class="wordmark text-2xl leading-none">bughq</h1></a>
+      <div class="flex items-center gap-2">
+        <button id="theme-toggle" class="icon-btn theme-btn" title="Toggle theme" aria-label="Toggle theme">
+          <svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+          <svg class="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+        </button>
+        <a href="/dashboard" data-no-router class="btn-ghost px-3.5 py-2 text-sm font-medium">← Dashboard</a>
+      </div>
+    </header>
+
+    @if (!user)
+      <div class="text-center py-24 text-sm" style="color: var(--text-3)">Loading…</div>
+    @endif
+
+    @if (needsOnboarding)
+      <script>window.location.replace('/projects/new')</script>
+    @endif
+
+    @if (user && activeProject)
+      <div class="mb-6">
+        <div class="flex items-center gap-3 flex-wrap">
+          <h2 class="text-xl font-semibold" style="letter-spacing:-0.02em">Settings</h2>
+          @if (projects.length > 1)
+            <select id="proj-switch" class="panel mono px-3 py-1.5 text-sm" style="color: var(--text-2)">
+              @foreach (projects as p)
+                <option value="{{ p.id }}" {{ p.id === projectId ? 'selected' : '' }}>{{ p.name }}</option>
+              @endforeach
+            </select>
+          @else
+            <span class="mono text-sm" style="color: var(--text-2)">{{ activeProject.name }}</span>
+          @endif
+        </div>
+        <p class="text-sm mt-1.5" style="color: var(--text-3)">Manage the API key, team, alerts, and deletion for this project.</p>
+      </div>
+
+      <nav class="tabnav flex items-center gap-2 mb-8 text-sm">
+        <a href="#keys" class="px-3 py-1.5 font-medium">Keys</a>
+        <a href="#members" class="px-3 py-1.5 font-medium">Members</a>
+        <a href="#alerts" class="px-3 py-1.5 font-medium">Alerts</a>
+        <a href="#danger" class="px-3 py-1.5 font-medium">Danger</a>
+      </nav>
+
+      <!-- ============================ KEYS ============================ -->
+      <section id="keys" class="sec mb-10">
+        <div class="sec-title mb-3">API key</div>
+        <div class="panel px-5 py-5">
+          <p class="text-sm mb-4" style="color: var(--text-3)">
+            This key authorizes error reports for <span class="mono" style="color: var(--text-2)">{{ activeProject.name }}</span>.
+            It's a public identifier (safe to ship in client code), not a secret — it says <em>which</em> project a report belongs to.
+          </p>
+          <div class="flex items-center gap-2 flex-wrap">
+            <code id="key-view" data-full="{{ keyFull }}" data-mask="{{ keyMask }}" class="field mono px-3.5 py-2.5 text-sm flex-1 min-w-[220px] truncate" style="letter-spacing:0.01em">{{ keyMask }}</code>
+            <button id="key-reveal" class="btn-ghost px-3 py-2 text-sm font-medium">Reveal</button>
+            <button id="key-copy" class="btn-ghost px-3 py-2 text-sm font-medium">Copy</button>
+            <button id="key-rotate" class="btn-danger px-3 py-2 text-sm font-medium">Rotate</button>
+          </div>
+          <p class="text-xs mt-3.5 leading-relaxed" style="color: var(--text-3)">
+            Rotating generates a new key and <span style="color: var(--warn)">invalidates the current one immediately</span> — any SDK still sending the old key will get 401 until you update its config (<span class="mono">BUGHQ_KEY</span> / <span class="mono">data-key</span>).
+          </p>
+          <span id="key-note" class="note text-xs mt-2"></span>
+        </div>
+      </section>
+
+      <!-- ============================ MEMBERS ============================ -->
+      <section id="members" class="sec mb-10">
+        <div class="sec-title mb-3">Members</div>
+        <div id="member-list" class="flex flex-col gap-2.5 mb-4">
+          <!-- Owner (always first, not removable) -->
+          <div class="panel flex items-center gap-3.5 px-4 py-3.5">
+            <span class="w-8 h-8 rounded-lg shrink-0 grid place-items-center font-semibold badge-owner">{{ (ownerEmail || '?').charAt(0).toUpperCase() }}</span>
+            <div class="min-w-0 flex-1">
+              <div class="text-sm font-medium truncate">{{ ownerEmail }}</div>
+              <div class="text-xs mt-0.5" style="color: var(--text-3)">Full access</div>
+            </div>
+            <span class="badge badge-owner">Owner</span>
+          </div>
+          @foreach (memberView as m)
+            <div class="panel flex items-center gap-3.5 px-4 py-3.5" data-member="{{ m.id }}">
+              <span class="w-8 h-8 rounded-lg shrink-0 grid place-items-center font-semibold" style="background: color-mix(in srgb, var(--text-3) 16%, var(--panel)); color: var(--text-2)">{{ (m.email || '?').charAt(0).toUpperCase() }}</span>
+              <div class="min-w-0 flex-1">
+                <div class="text-sm font-medium truncate">{{ m.email }}</div>
+                <div class="text-xs mt-0.5" style="color: var(--text-3)">Can view &amp; triage issues</div>
+              </div>
+              <span class="badge badge-soft">Member</span>
+              <button class="js-member-remove btn-danger px-2.5 py-1.5 text-xs font-medium" title="Remove">Remove</button>
+            </div>
+          @endforeach
+          @foreach (inviteView as i)
+            <div class="panel flex items-center gap-3.5 px-4 py-3.5" data-member="{{ i.id }}" data-join="{{ i.join }}">
+              <span class="w-8 h-8 rounded-lg shrink-0 grid place-items-center font-semibold" style="background: color-mix(in srgb, var(--text-3) 12%, var(--panel)); color: var(--text-3)">{{ (i.email || '?').charAt(0).toUpperCase() }}</span>
+              <div class="min-w-0 flex-1">
+                <div class="text-sm font-medium truncate">{{ i.email }}</div>
+                <div class="text-xs mt-0.5" style="color: var(--text-3)">{{ i.registered ? 'Has an account — pending accept' : 'Invite sent — awaiting sign-up' }}</div>
+              </div>
+              <span class="badge badge-pending" title="Pending — becomes a member once they accept">Invited</span>
+              <button class="js-copy-join btn-ghost px-2.5 py-1.5 text-xs font-medium" title="Copy join link">Copy link</button>
+              <button class="js-member-remove btn-danger px-2.5 py-1.5 text-xs font-medium" title="Revoke invite">Remove</button>
+            </div>
+          @endforeach
+        </div>
+        <div class="panel px-5 py-5">
+          <div class="text-sm font-semibold mb-3">Invite a teammate</div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <input id="invite-email" type="email" class="field flex-1 min-w-[220px] px-3.5 py-2.5 text-sm" placeholder="teammate@company.com" autocomplete="off">
+            <button id="invite-add" class="btn px-4 py-2.5 text-sm font-semibold">Invite</button>
+          </div>
+          <span id="invite-note" class="note text-xs mt-2.5"></span>
+          <p class="text-xs mt-3.5 leading-relaxed" style="color: var(--text-3)">
+            We email them a join link. They sign up (or log in) with that email, then accept from a banner in the app. Members can view and triage issues; only you can manage keys, members, and deletion.
+          </p>
+        </div>
+      </section>
+
+      <!-- ============================ ALERTS ============================ -->
+      <section id="alerts" class="sec mb-10">
+        <div class="sec-title mb-3">Alerts</div>
+        <p class="text-sm mb-4" style="color: var(--text-3)">
+          Get pinged in Slack or Discord on a new issue or a regression. The project owner is always emailed too.
+        </p>
+        <div id="channel-list" class="flex flex-col gap-2.5 mb-4">
+          @forelse (channelView as c)
+            <div class="panel flex items-center gap-3.5 px-4 py-3.5" data-id="{{ c.id }}">
+              <span class="badge badge-{{ c.type }}">{{ c.type === 'slack' ? 'Slack' : 'Discord' }}</span>
+              <div class="min-w-0 flex-1">
+                <div class="text-sm font-medium truncate">{{ c.label }}</div>
+                <div class="text-xs mono truncate mt-0.5" style="color: var(--text-3)">{{ c.mask }}</div>
+              </div>
+              <button class="js-test btn-ghost px-2.5 py-1.5 text-xs font-medium" title="Send a test message">Test</button>
+              <div class="js-toggle tgl" data-on="{{ c.enabled ? '1' : '0' }}" role="switch" aria-checked="{{ c.enabled ? 'true' : 'false' }}" title="Enable / disable"></div>
+              <button class="js-delete btn-danger px-2.5 py-1.5 text-xs font-medium" title="Remove">Remove</button>
+            </div>
+          @empty
+            <div class="panel px-5 py-8 text-center">
+              <div class="text-sm font-medium mb-1">No chat alerts yet</div>
+              <div class="text-xs" style="color: var(--text-3)">Add a Slack or Discord webhook below to start getting pinged.</div>
+            </div>
+          @endforelse
+        </div>
+        <div class="panel px-5 py-5">
+          <div class="text-sm font-semibold mb-3.5">Add a channel</div>
+          <div class="grid grid-cols-2 gap-2 mb-3">
+            <button type="button" id="pick-slack" class="seg seg-slack px-3 py-2.5 text-sm font-medium" data-sel="1">Slack</button>
+            <button type="button" id="pick-discord" class="seg seg-discord px-3 py-2.5 text-sm font-medium" data-sel="0">Discord</button>
+          </div>
+          <input id="wh-url" type="url" class="field w-full px-3.5 py-2.5 text-sm mono mb-2" placeholder="https://hooks.slack.com/services/…" autocomplete="off" spellcheck="false">
+          <input id="wh-label" type="text" class="field w-full px-3.5 py-2.5 text-sm mb-3" placeholder="Label (optional) — e.g. #alerts" maxlength="255">
+          <div class="flex items-center gap-3">
+            <button id="wh-add" class="btn px-4 py-2.5 text-sm font-semibold">Add channel</button>
+            <span id="wh-note" class="note text-xs"></span>
+          </div>
+          <p id="wh-help" class="text-xs mt-3.5 leading-relaxed" style="color: var(--text-3)">
+            In Slack: <span style="color:var(--text-2)">Apps → Incoming Webhooks → Add to a channel</span>, then paste the <span class="mono">hooks.slack.com/services/…</span> URL.
+          </p>
+        </div>
+      </section>
+
+      <!-- ============================ DANGER ============================ -->
+      <section id="danger" class="sec mb-6">
+        <div class="sec-title mb-3" style="color: var(--warn)">Danger zone</div>
+        <div class="panel danger-panel px-5 py-5">
+          <div class="text-sm font-semibold mb-1">Delete this project</div>
+          <p class="text-sm mb-4" style="color: var(--text-3)">
+            Permanently deletes <span class="mono" style="color: var(--text-2)">{{ activeProject.name }}</span> and all of its issues, events, alert channels, and members. This cannot be undone.
+          </p>
+          <div class="flex items-center gap-2 flex-wrap">
+            <input id="del-confirm" type="text" class="field flex-1 min-w-[220px] px-3.5 py-2.5 text-sm mono" placeholder="Type “{{ activeProject.id }}” to confirm" autocomplete="off" spellcheck="false">
+            <button id="del-btn" class="btn-danger px-4 py-2.5 text-sm font-semibold" disabled>Delete project</button>
+          </div>
+          <span id="del-note" class="note text-xs mt-2.5"></span>
+        </div>
+      </section>
+    @endif
+
+  </div>
+</div>
+
+<script>
+(function () {
+  var t = localStorage.getItem('token')
+  if (!t) { window.location.replace('/login'); return }
+  if (!/(^|;)\s*bughq_token=/.test(document.cookie)) {
+    document.cookie = 'bughq_token=' + t + '; path=/; max-age=2592000; samesite=lax'
+    window.location.reload()
+    return
+  }
+
+  // Theme toggle (light/dark, persisted per device).
+  var themeBtn = document.getElementById('theme-toggle')
+  if (themeBtn) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)')
+    var effTheme = function () { return document.documentElement.getAttribute('data-theme') || (mq.matches ? 'dark' : 'light') }
+    var paintTheme = function () { themeBtn.setAttribute('data-t', effTheme()) }
+    paintTheme()
+    themeBtn.addEventListener('click', function () {
+      var next = effTheme() === 'dark' ? 'light' : 'dark'
+      document.documentElement.setAttribute('data-theme', next)
+      try { localStorage.setItem('bughq_theme', next) } catch (e) {}
+      paintTheme()
+    })
+  }
+
+  var projectId = {{ projectId ? `'${projectId}'` : 'null' }}
+  if (!projectId) return
+  var auth = { 'Authorization': 'Bearer ' + t, 'Content-Type': 'application/json' }
+  var proj = '/api/projects/' + encodeURIComponent(projectId)
+  var chBase = proj + '/channels'
+
+  function flash(el, msg, ok) {
+    el.textContent = msg
+    el.style.color = ok ? 'var(--ok)' : 'var(--accent)'
+    el.classList.add('show')
+  }
+
+  // ---- Project switcher (owner's own projects) ----
+  var sw = document.getElementById('proj-switch')
+  if (sw) sw.addEventListener('change', function () {
+    document.cookie = 'bughq_project=' + encodeURIComponent(this.value) + '; path=/; max-age=31536000; samesite=lax'
+    window.location.href = '/settings'
+  })
+
+  // ---- Keys: reveal / copy / rotate ----
+  var keyView = document.getElementById('key-view')
+  var keyReveal = document.getElementById('key-reveal')
+  var keyCopy = document.getElementById('key-copy')
+  var keyRotate = document.getElementById('key-rotate')
+  var keyNote = document.getElementById('key-note')
+  // Read the key from data-attributes (HTML-escaped, not JS-quoted like a
+  // {{ }} inside <script>, which stx JSON-encodes and would double-quote).
+  var fullKey = keyView ? keyView.getAttribute('data-full') : ''
+  var maskVal = keyView ? keyView.getAttribute('data-mask') : ''
+  var revealed = false
+  keyReveal.addEventListener('click', function () {
+    revealed = !revealed
+    keyView.textContent = revealed ? fullKey : maskVal
+    keyReveal.textContent = revealed ? 'Hide' : 'Reveal'
+  })
+  keyCopy.addEventListener('click', function () {
+    var done = function () { var o = keyCopy.textContent; keyCopy.textContent = 'Copied'; setTimeout(function () { keyCopy.textContent = o }, 1400) }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(fullKey).then(done, done)
+    else done()
+  })
+  keyRotate.addEventListener('click', function () {
+    var ask = window.stxConfirm
+      ? window.stxConfirm('The current key stops working immediately — any SDK still sending it will get 401 until you update its config. Continue?', { title: 'Rotate API key?', confirmText: 'Rotate key', cancelText: 'Cancel', type: 'warning' })
+      : Promise.resolve(window.confirm('Rotate the API key? The current key stops working immediately.'))
+    Promise.resolve(ask).then(function (ok) {
+      if (!ok) return
+      keyRotate.disabled = true
+      fetch(proj + '/rotate-key', { method: 'POST', headers: auth })
+        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b } }) })
+        .then(function (res) {
+          keyRotate.disabled = false
+          if (!res.ok) { flash(keyNote, res.b.error || 'Rotate failed.', false); return }
+          fullKey = res.b.ingest_key
+          revealed = true
+          keyView.textContent = fullKey
+          keyReveal.textContent = 'Hide'
+          flash(keyNote, 'New key generated. Update your SDK config with it.', true)
+        })
+        .catch(function () { keyRotate.disabled = false; flash(keyNote, 'Network error.', false) })
+    })
+  })
+
+  // ---- Members: invite / remove ----
+  var inviteEmail = document.getElementById('invite-email')
+  var inviteAdd = document.getElementById('invite-add')
+  var inviteNote = document.getElementById('invite-note')
+  inviteAdd.addEventListener('click', function () {
+    var email = (inviteEmail.value || '').trim()
+    if (!email) { flash(inviteNote, 'Enter an email address.', false); return }
+    inviteAdd.disabled = true
+    fetch(proj + '/members', { method: 'POST', headers: auth, body: JSON.stringify({ email: email }) })
+      .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b } }) })
+      .then(function (res) {
+        inviteAdd.disabled = false
+        if (!res.ok) { flash(inviteNote, res.b.error || 'Could not invite.', false); return }
+        window.location.reload()
+      })
+      .catch(function () { inviteAdd.disabled = false; flash(inviteNote, 'Network error.', false) })
+  })
+  document.getElementById('member-list').addEventListener('click', function (e) {
+    var row = e.target.closest('[data-member]')
+    if (!row) return
+
+    // Copy the join link for a pending invite (handy when email isn't delivered).
+    if (e.target.classList.contains('js-copy-join')) {
+      var cbtn = e.target, link = row.getAttribute('data-join') || ''
+      var done = function () { var o = cbtn.textContent; cbtn.textContent = 'Copied ✓'; setTimeout(function () { cbtn.textContent = o }, 1600) }
+      if (navigator.clipboard && link) navigator.clipboard.writeText(link).then(done, done)
+      else done()
+      return
+    }
+
+    if (e.target.classList.contains('js-member-remove')) {
+      var btn = e.target
+      btn.disabled = true; btn.textContent = 'Removing…'
+      fetch(proj + '/members/' + encodeURIComponent(row.getAttribute('data-member')), { method: 'DELETE', headers: auth })
+        .then(function (r) { if (r.ok) row.remove(); else { btn.disabled = false; btn.textContent = 'Remove' } })
+        .catch(function () { btn.disabled = false; btn.textContent = 'Remove' })
+    }
+  })
+
+  // ---- Alerts: provider picker + add + row actions (test/toggle/delete) ----
+  var type = 'slack'
+  var slackBtn = document.getElementById('pick-slack')
+  var discordBtn = document.getElementById('pick-discord')
+  var urlInput = document.getElementById('wh-url')
+  var help = document.getElementById('wh-help')
+  var placeholders = { slack: 'https://hooks.slack.com/services/…', discord: 'https://discord.com/api/webhooks/…' }
+  var helps = {
+    slack: 'In Slack: Apps → Incoming Webhooks → Add to a channel, then paste the hooks.slack.com/services/… URL.',
+    discord: 'In Discord: Server Settings → Integrations → Webhooks → New Webhook → Copy Webhook URL.',
+  }
+  function pick(next) {
+    type = next
+    slackBtn.setAttribute('data-sel', next === 'slack' ? '1' : '0')
+    discordBtn.setAttribute('data-sel', next === 'discord' ? '1' : '0')
+    urlInput.setAttribute('placeholder', placeholders[next])
+    help.textContent = helps[next]
+  }
+  slackBtn.addEventListener('click', function () { pick('slack') })
+  discordBtn.addEventListener('click', function () { pick('discord') })
+
+  var whNote = document.getElementById('wh-note')
+  var addBtn = document.getElementById('wh-add')
+  var labelInput = document.getElementById('wh-label')
+  addBtn.addEventListener('click', function () {
+    var url = (urlInput.value || '').trim()
+    if (!url) { flash(whNote, 'Paste a webhook URL first.', false); return }
+    addBtn.disabled = true
+    flash(whNote, 'Adding…', true)
+    fetch(chBase, { method: 'POST', headers: auth, body: JSON.stringify({ type: type, webhook_url: url, label: (labelInput.value || '').trim() }) })
+      .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b } }) })
+      .then(function (res) {
+        if (!res.ok) { addBtn.disabled = false; flash(whNote, res.b.error || 'Could not add that channel.', false); return }
+        window.location.reload()
+      })
+      .catch(function () { addBtn.disabled = false; flash(whNote, 'Network error. Try again.', false) })
+  })
+  document.getElementById('channel-list').addEventListener('click', function (e) {
+    var row = e.target.closest('[data-id]')
+    if (!row) return
+    var one = chBase + '/' + encodeURIComponent(row.getAttribute('data-id'))
+    if (e.target.classList.contains('js-test')) {
+      var b1 = e.target; b1.disabled = true; b1.textContent = 'Sending…'
+      fetch(one + '/test', { method: 'POST', headers: auth })
+        .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b } }) })
+        .then(function (res) { b1.textContent = res.ok ? 'Sent ✓' : 'Failed'; setTimeout(function () { b1.disabled = false; b1.textContent = 'Test' }, 2400) })
+        .catch(function () { b1.disabled = false; b1.textContent = 'Test' })
+      return
+    }
+    if (e.target.classList.contains('js-toggle')) {
+      var tgl = e.target
+      var next = tgl.getAttribute('data-on') === '1' ? 0 : 1
+      tgl.setAttribute('data-on', String(next)); tgl.setAttribute('aria-checked', next ? 'true' : 'false')
+      fetch(one, { method: 'PATCH', headers: auth, body: JSON.stringify({ enabled: !!next }) })
+        .catch(function () { tgl.setAttribute('data-on', next ? '0' : '1') })
+      return
+    }
+    if (e.target.classList.contains('js-delete')) {
+      var b2 = e.target; b2.disabled = true; b2.textContent = 'Removing…'
+      fetch(one, { method: 'DELETE', headers: auth })
+        .then(function (r) { if (r.ok) row.remove(); else { b2.disabled = false; b2.textContent = 'Remove' } })
+        .catch(function () { b2.disabled = false; b2.textContent = 'Remove' })
+    }
+  })
+
+  // ---- Danger zone: type-to-confirm delete ----
+  var delInput = document.getElementById('del-confirm')
+  var delBtn = document.getElementById('del-btn')
+  var delNote = document.getElementById('del-note')
+  delInput.addEventListener('input', function () { delBtn.disabled = (this.value.trim() !== projectId) })
+  delBtn.addEventListener('click', function () {
+    if (delInput.value.trim() !== projectId) return
+    delBtn.disabled = true; delBtn.textContent = 'Deleting…'
+    fetch(proj, { method: 'DELETE', headers: auth })
+      .then(function (r) {
+        if (r.ok) {
+          document.cookie = 'bughq_project=; path=/; max-age=0'
+          window.location.assign('/projects')
+        } else { delBtn.disabled = false; delBtn.textContent = 'Delete project'; flash(delNote, 'Delete failed.', false) }
+      })
+      .catch(function () { delBtn.disabled = false; delBtn.textContent = 'Delete project'; flash(delNote, 'Network error.', false) })
+  })
+})()
+</script>

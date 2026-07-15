@@ -10,7 +10,7 @@
 import { Auth } from '@stacksjs/auth'
 import { db } from '@stacksjs/database'
 import { response, route } from '@stacksjs/router'
-import { notifyIssueOpened } from '../app/Errors/alerts'
+import { dispatchAlerts } from '../app/Errors/alerts'
 import { categorize, culprit, fingerprint, fingerprintFromParts, issueTitle, randomId } from '../app/Errors/fingerprint'
 import { authorizeIngest } from '../app/Errors/ingest'
 import { allowAlert, rateLimit } from '../app/Errors/limits'
@@ -113,21 +113,37 @@ async function userFromRequest(request: any): Promise<any | null> {
   }
 }
 
-/** True when `user` owns the project the issue belongs to. */
+/** The user's email, lowercased, for case-insensitive membership matching. */
+function userEmail(user: any): string {
+  return String(user?.email ?? '').trim().toLowerCase()
+}
+
+/**
+ * True when `user` can access the issue: they own the project it belongs to, or
+ * they're an invited member of it. Viewing and triage (resolve/ignore) are open
+ * to members; only administrative actions are owner-only (see routes/projects).
+ */
 async function ownsIssue(user: any, issueId: string): Promise<boolean> {
   const row = (await db.unsafe(
     `SELECT 1 FROM issues i JOIN projects p ON p.id = i.project_id
-     WHERE i.id = $1 AND p.owner_id = $2 LIMIT 1`,
-    [issueId, Number(user.id)],
+     WHERE i.id = $1 AND (
+       p.owner_id = $2
+       OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND lower(m.email) = $3)
+     ) LIMIT 1`,
+    [issueId, Number(user.id), userEmail(user)],
   ))?.[0]
   return !!row
 }
 
-/** True when `user` owns the project. */
+/** True when `user` can access the project (owner or invited member). */
 async function ownsProject(user: any, projectId: string): Promise<boolean> {
   const row = (await db.unsafe(
-    'SELECT 1 FROM projects WHERE id = $1 AND owner_id = $2 LIMIT 1',
-    [projectId, Number(user.id)],
+    `SELECT 1 FROM projects p
+     WHERE p.id = $1 AND (
+       p.owner_id = $2
+       OR EXISTS (SELECT 1 FROM project_members m WHERE m.project_id = p.id AND lower(m.email) = $3)
+     ) LIMIT 1`,
+    [projectId, Number(user.id), userEmail(user)],
   ))?.[0]
   return !!row
 }
@@ -147,9 +163,8 @@ route.post('/errors', async (request: any) => {
     return json({ error: 'payload too large' }, 413)
 
   const body = request.jsonBody ?? {}
-  const projectId = body.project ?? body.p
-  if (!projectId || !body.message)
-    return json({ error: 'missing project or message' }, 400)
+  if (!body.message)
+    return json({ error: 'missing message' }, 400)
 
   // Per-IP quota across all projects (blunts a broad flood before we even hit
   // the DB for the project lookup).
@@ -158,15 +173,32 @@ route.post('/errors', async (request: any) => {
   if (!ipLimit.ok)
     return json({ error: 'rate limited' }, 429, { 'Retry-After': String(ipLimit.retryAfter) })
 
-  // Authorize: the report must present the project's ingest key.
+  // Resolve the project. The ingest key is globally unique, so it identifies the
+  // project on its own — a key-only client sends no project id at all (simpler
+  // than a Sentry DSN, which carries the project id in its path). When a client
+  // DOES send a project id we still honor it and require the key to match it.
   const providedKey = request.headers?.get('x-bughq-key') ?? body.key ?? null
-  const project = (await db.unsafe(
-    'SELECT id, ingest_key, is_active FROM projects WHERE id = $1 LIMIT 1',
-    [String(projectId)],
-  ))?.[0]
+  const requestedProject = body.project ?? body.p ?? null
+  let project = null
+  if (requestedProject) {
+    project = (await db.unsafe(
+      'SELECT id, ingest_key, is_active FROM projects WHERE id = $1 LIMIT 1',
+      [String(requestedProject)],
+    ))?.[0] ?? null
+  }
+  else if (providedKey) {
+    project = (await db.unsafe(
+      'SELECT id, ingest_key, is_active FROM projects WHERE ingest_key = $1 LIMIT 1',
+      [String(providedKey)],
+    ))?.[0] ?? null
+  }
   const auth = authorizeIngest(project, providedKey)
   if (!auth.ok)
     return json({ error: auth.error }, auth.status)
+
+  // Canonical project id for everything downstream (rate limit, grouping,
+  // inserts) — always the resolved row's id, never the raw request value.
+  const projectId = String(project.id)
 
   // Per-project quota: the meaningful abuse dimension (a flood targets one
   // project's key). Keyed after auth so an invalid key can't consume a
@@ -207,14 +239,14 @@ route.post('/errors', async (request: any) => {
     // worth an email. Fire-and-forget: mail transport must never slow ingest.
     // Gated by the per-project alert throttle so a flood can't email-bomb.
     if (String(existing.status) === 'resolved' && allowAlert(String(projectId))) {
-      notifyIssueOpened(String(projectId), {
+      dispatchAlerts(String(projectId), {
         id: issueId,
         title: issueTitle(errorType, message),
         culprit: culprit(stack),
         level: body.level ?? 'error',
         environment: body.environment ?? null,
         count: Number(existing.count ?? 0) + 1,
-      }, 'regression').catch(err => console.error('[alerts] regression email failed:', err instanceof Error ? err.message : err))
+      }, 'regression').catch(err => console.error('[alerts] regression alert failed:', err instanceof Error ? err.message : err))
     }
   }
   else {
@@ -239,13 +271,13 @@ route.post('/errors', async (request: any) => {
     // the per-project alert throttle has already fired too many this hour
     // (a flood of unique messages would otherwise be an email bomb).
     if (allowAlert(String(projectId))) {
-      notifyIssueOpened(String(projectId), {
+      dispatchAlerts(String(projectId), {
         id: issueId,
         title,
         culprit: where,
         level: body.level ?? 'error',
         environment: body.environment ?? null,
-      }, 'new').catch(err => console.error('[alerts] new-issue email failed:', err instanceof Error ? err.message : err))
+      }, 'new').catch(err => console.error('[alerts] new-issue alert failed:', err instanceof Error ? err.message : err))
     }
   }
 
@@ -359,12 +391,12 @@ route.get('/sdk.js', (request: any) => {
   // eslint-disable pickier/no-unused-vars -- the string below is the browser SDK source (a template literal), not real declarations; pickier's token scan misreads its `var`/`function` tokens.
   const script = `(function(){
   var s=document.currentScript,project=s&&s.getAttribute('data-project'),key=s&&s.getAttribute('data-key');
-  if(!project||!key)return;
+  if(!key)return;
   var release=s&&s.getAttribute('data-release'),env=s&&s.getAttribute('data-environment'),fw=s&&s.getAttribute('data-framework');
   function report(err,extra){try{
     var e=err&&err.error?err.error:err;
     fetch('${origin}/errors',{method:'POST',keepalive:true,headers:{'Content-Type':'application/json','X-BugHQ-Key':key},
-      body:JSON.stringify({project:project,type:(e&&e.name)||'Error',message:(e&&e.message)||String(e),
+      body:JSON.stringify({project:project||undefined,type:(e&&e.name)||'Error',message:(e&&e.message)||String(e),
         stack:e&&e.stack,url:location.href,release:release||undefined,environment:env||undefined,
         framework:fw||'script',timestamp:new Date().toISOString(),
         sdk:{name:'bughq.js.loader',version:'0.2.0'},extra:extra||null})});
