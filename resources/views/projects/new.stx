@@ -14,7 +14,7 @@ function ensureAuthed() {
   // Mirror the token into a cookie so the server-rendered dashboard can
   // authenticate this user on plain navigation.
   if (!/(^|;)\s*bughq_token=/.test(document.cookie))
-    document.cookie = `bughq_token=${t}; path=/; max-age=2592000; samesite=lax`
+    document.cookie = `bughq_token=${t}; path=/; max-age=2592000; samesite=lax${location.protocol === 'https:' ? '; secure' : ''}`
 }
 ensureAuthed()
 

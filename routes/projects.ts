@@ -372,7 +372,11 @@ route.get('/join/{token}', async (request: any) => {
     'SELECT email FROM project_invites WHERE token = $1 LIMIT 1',
     [token],
   ))?.[0]
-  const cookie = `bughq_invite=${encodeURIComponent(token)}; path=/; max-age=604800; samesite=lax`
+  // Mark Secure when the request arrived over https (prod behind TLS) so the
+  // cookie never rides a plaintext request; omitted on http so local dev works.
+  const proto = request.headers?.get('x-forwarded-proto') || new URL(request.url).protocol.replace(':', '')
+  const secure = proto === 'https' ? '; secure' : ''
+  const cookie = `bughq_invite=${encodeURIComponent(token)}; path=/; max-age=604800; samesite=lax${secure}`
   if (!invite) {
     // Unknown/expired token: send them to the dashboard; the banner just won't show.
     return new Response(null, { status: 302, headers: { Location: '/dashboard' } })

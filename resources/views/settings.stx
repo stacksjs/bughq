@@ -429,7 +429,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
   var t = localStorage.getItem('token')
   if (!t) { window.location.replace('/login'); return }
   if (!/(^|;)\s*bughq_token=/.test(document.cookie)) {
-    document.cookie = 'bughq_token=' + t + '; path=/; max-age=2592000; samesite=lax'
+    document.cookie = 'bughq_token=' + t + '; path=/; max-age=2592000; samesite=lax' + (location.protocol === 'https:' ? '; secure' : '')
     window.location.reload()
     return
   }
@@ -478,7 +478,7 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
   // ---- Project switcher (owner's own projects) ----
   var sw = document.getElementById('proj-switch')
   if (sw) sw.addEventListener('change', function () {
-    document.cookie = 'bughq_project=' + encodeURIComponent(this.value) + '; path=/; max-age=31536000; samesite=lax'
+    document.cookie = 'bughq_project=' + encodeURIComponent(this.value) + '; path=/; max-age=31536000; samesite=lax' + (location.protocol === 'https:' ? '; secure' : '')
     window.location.href = '/settings'
   })
 

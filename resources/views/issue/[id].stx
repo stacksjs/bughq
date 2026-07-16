@@ -709,7 +709,7 @@ details.sysgroup[open] > summary .chev { transform: rotate(90deg); }
   var t = localStorage.getItem('token')
   if (!t) { window.location.replace('/login'); return }
   if (!/(^|;)\s*bughq_token=/.test(document.cookie)) {
-    document.cookie = 'bughq_token=' + t + '; path=/; max-age=2592000; samesite=lax'
+    document.cookie = 'bughq_token=' + t + '; path=/; max-age=2592000; samesite=lax' + (location.protocol === 'https:' ? '; secure' : '')
     window.location.reload()
     return
   }
@@ -733,7 +733,7 @@ details.sysgroup[open] > summary .chev { transform: rotate(90deg); }
   // alert email for a project you were not last browsing.
   var proj = '{{ issue ? issue.project_id : '' }}'
   if (proj)
-    document.cookie = 'bughq_project=' + encodeURIComponent(proj) + '; path=/; max-age=31536000; samesite=lax'
+    document.cookie = 'bughq_project=' + encodeURIComponent(proj) + '; path=/; max-age=31536000; samesite=lax' + (location.protocol === 'https:' ? '; secure' : '')
   var btn = document.querySelector('[data-copy-stack]')
   var raw = document.getElementById('raw-stack')
   if (btn && raw) {

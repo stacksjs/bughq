@@ -301,7 +301,7 @@ summary::-webkit-details-marker { display: none; }
       <div class="flex items-center gap-3">
         <a href="/projects" class="wordmark-link"><h1 class="wordmark text-2xl md:text-[28px] leading-none">bughq</h1></a>
         @if (projects.length > 1)
-          <select onchange="document.cookie = 'bughq_project=' + encodeURIComponent(this.value) + '; path=/; max-age=31536000; samesite=lax'; location.href = '{{ pageUrl({ page: 1 }) }}'"
+          <select onchange="document.cookie = 'bughq_project=' + encodeURIComponent(this.value) + '; path=/; max-age=31536000; samesite=lax' + (location.protocol === 'https:' ? '; secure' : ''); location.href = '{{ pageUrl({ page: 1 }) }}'"
                   class="panel mono px-3 py-1.5 text-sm" style="color: var(--text-2)">
             @foreach (projects as p)
               <option value="{{ p.id }}" {{ p.id === projectId ? 'selected' : '' }}>{{ p.name }}{{ p.is_active === false ? ' (archived)' : '' }}</option>
@@ -429,7 +429,7 @@ summary::-webkit-details-marker { display: none; }
   // Mirror the token into a cookie so the server can authenticate this user;
   // reload once when it was missing so the first render is authenticated.
   if (!/(^|;)\s*bughq_token=/.test(document.cookie)) {
-    document.cookie = 'bughq_token=' + t + '; path=/; max-age=2592000; samesite=lax'
+    document.cookie = 'bughq_token=' + t + '; path=/; max-age=2592000; samesite=lax' + (location.protocol === 'https:' ? '; secure' : '')
     window.location.reload()
     return
   }
@@ -457,7 +457,7 @@ summary::-webkit-details-marker { display: none; }
   // clean /dashboard.
   var qs = new URLSearchParams(window.location.search)
   if (qs.get('project')) {
-    document.cookie = 'bughq_project=' + encodeURIComponent(qs.get('project')) + '; path=/; max-age=31536000; samesite=lax'
+    document.cookie = 'bughq_project=' + encodeURIComponent(qs.get('project')) + '; path=/; max-age=31536000; samesite=lax' + (location.protocol === 'https:' ? '; secure' : '')
     qs.delete('project')
     var rest = qs.toString()
     window.history.replaceState(null, '', window.location.pathname + (rest ? '?' + rest : ''))
@@ -477,7 +477,7 @@ summary::-webkit-details-marker { display: none; }
       .then(function (r) { return r.json().then(function (b) { return { ok: r.ok, b: b } }) })
       .then(function (res) {
         if (!res.ok) { jbtn.disabled = false; jbtn.textContent = 'Join'; return }
-        document.cookie = 'bughq_project=' + encodeURIComponent(res.b.project) + '; path=/; max-age=31536000; samesite=lax'
+        document.cookie = 'bughq_project=' + encodeURIComponent(res.b.project) + '; path=/; max-age=31536000; samesite=lax' + (location.protocol === 'https:' ? '; secure' : '')
         window.location.assign('/dashboard')
       })
       .catch(function () { jbtn.disabled = false; jbtn.textContent = 'Join' })

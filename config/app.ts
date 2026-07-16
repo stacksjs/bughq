@@ -14,7 +14,9 @@ export default {
   env: env.APP_ENV ?? 'local',
   url: env.APP_URL ?? 'stacks.localhost',
   redirectUrls: ['stacksjs.com'],
-  debug: String(env.DEBUG) === 'true',
+  // Never expose stack traces in production, even if a stray DEBUG=true leaks
+  // into the deployed env — the framework error page would otherwise render them.
+  debug: String(env.DEBUG) === 'true' && (env.APP_ENV ?? 'local') !== 'production',
   key: env.APP_KEY,
 
   maintenanceMode: env.APP_MAINTENANCE ?? false,
