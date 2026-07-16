@@ -151,6 +151,10 @@ async function post(url: string, payload: unknown): Promise<boolean> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
     signal: AbortSignal.timeout(5000),
+    // The SSRF allowlist only vets the URL we were given. A 3xx from (or an
+    // open redirect on) an allowlisted host would otherwise bounce us to an
+    // arbitrary internal target, so refuse to follow redirects at all.
+    redirect: 'error',
   })
   return res.ok
 }

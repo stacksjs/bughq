@@ -29,11 +29,28 @@ const PROJECT_LIMIT = 120
 const IP_LIMIT = 300
 const RATE_WINDOW_MS = 10_000
 
+// Number of trusted reverse-proxy / load-balancer hops in front of the app.
+// X-Forwarded-For is built left-to-right (client, proxy1, proxy2, …), so the
+// real client sits at index (length - TRUSTED_PROXY_HOPS). Counting from the
+// RIGHT means a client can only forge entries we then skip over — taking the
+// leftmost value (as before) let anyone spoof their IP and dodge the per-IP
+// quota. Default 1 (a single edge LB); set TRUSTED_PROXY_HOPS to match your
+// topology, or 0 if the app is exposed directly (XFF is then ignored).
+const TRUSTED_PROXY_HOPS = Math.max(0, Number(process.env.TRUSTED_PROXY_HOPS ?? 1))
+
 function clientIp(request: any): string {
+  const direct = request.headers?.get('x-real-ip') || request.ip || 'unknown'
+  if (TRUSTED_PROXY_HOPS === 0)
+    return direct
   const xff = request.headers?.get('x-forwarded-for')
-  if (xff)
-    return String(xff).split(',')[0].trim()
-  return request.headers?.get('x-real-ip') || request.ip || 'unknown'
+  if (xff) {
+    const hops = String(xff).split(',').map((s: string) => s.trim()).filter(Boolean)
+    if (hops.length) {
+      const idx = hops.length - TRUSTED_PROXY_HOPS
+      return hops[idx >= 0 ? idx : 0]
+    }
+  }
+  return direct
 }
 
 function clip(value: string, max: number): string {
@@ -163,6 +180,11 @@ route.post('/errors', async (request: any) => {
     return json({ error: 'payload too large' }, 413)
 
   const body = request.jsonBody ?? {}
+  // Content-Length is client-supplied (spoofable, and absent on chunked
+  // requests), so the header check above is only a cheap early-out. Bound the
+  // ACTUAL parsed payload too, or an understated/missing length slips past.
+  if (Buffer.byteLength(JSON.stringify(body)) > MAX_BODY_BYTES)
+    return json({ error: 'payload too large' }, 413)
   if (!body.message)
     return json({ error: 'missing message' }, 400)
 
