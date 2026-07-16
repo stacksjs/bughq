@@ -223,7 +223,7 @@ route.post('/errors', async (request: any) => {
   // Per-IP quota across all projects (blunts a broad flood before we even hit
   // the DB for the project lookup).
   const ip = clientIp(request)
-  const ipLimit = rateLimit(`ip:${ip}`, IP_LIMIT, RATE_WINDOW_MS)
+  const ipLimit = await rateLimit(`ip:${ip}`, IP_LIMIT, RATE_WINDOW_MS)
   if (!ipLimit.ok)
     return json({ error: 'rate limited' }, 429, { 'Retry-After': String(ipLimit.retryAfter) })
 
@@ -257,7 +257,7 @@ route.post('/errors', async (request: any) => {
   // Per-project quota: the meaningful abuse dimension (a flood targets one
   // project's key). Keyed after auth so an invalid key can't consume a
   // project's budget.
-  const projLimit = rateLimit(`proj:${projectId}`, PROJECT_LIMIT, RATE_WINDOW_MS)
+  const projLimit = await rateLimit(`proj:${projectId}`, PROJECT_LIMIT, RATE_WINDOW_MS)
   if (!projLimit.ok)
     return json({ error: 'rate limited' }, 429, { 'Retry-After': String(projLimit.retryAfter) })
 
@@ -292,7 +292,7 @@ route.post('/errors', async (request: any) => {
     // A resolved issue coming back is a regression — the one repeat occurrence
     // worth an email. Fire-and-forget: mail transport must never slow ingest.
     // Gated by the per-project alert throttle so a flood can't email-bomb.
-    if (String(existing.status) === 'resolved' && allowAlert(String(projectId))) {
+    if (String(existing.status) === 'resolved' && await allowAlert(String(projectId))) {
       dispatchAlerts(String(projectId), {
         id: issueId,
         title: issueTitle(errorType, message),
@@ -325,7 +325,7 @@ route.post('/errors', async (request: any) => {
     // First occurrence of a brand-new issue: alert the project owner, unless
     // the per-project alert throttle has already fired too many this hour
     // (a flood of unique messages would otherwise be an email bomb).
-    if (allowAlert(String(projectId))) {
+    if (await allowAlert(String(projectId))) {
       dispatchAlerts(String(projectId), {
         id: issueId,
         title,
