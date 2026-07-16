@@ -27,13 +27,13 @@ export const tsCloud: TsCloudConfig = {
     region: 'us-east-1', // Default AWS region
   },
 
-  // Attach to the shared box owned by the `stacks` project instead of
-  // provisioning our own: the deploy resolves the `stacks-<env>-app` server,
-  // ships only bughq's sites, and adds an additive rpx `sites.d/bughq.json`
-  // fragment + DNS — never touching the box lifecycle or other tenants.
+  // Provision our OWN dedicated Hetzner box (no `attachTo`): the deploy stands
+  // up a `bughq-<env>-app` server sized by `infrastructure.compute` below and
+  // ships all of bughq's sites onto it. One size smaller than the shared
+  // `stacks` box was requested; we run `small` (cx23, ~4GB) to match it because
+  // the next size down (micro/cpx11, ~2GB) is tight for `bun install` on-box.
   cloud: {
     provider: 'hetzner',
-    attachTo: 'stacks',
   },
 
   /**
