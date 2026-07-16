@@ -91,7 +91,7 @@ export default {
      * path template '/reset-password?token={token}&email={email}' at launch
      * so it resolves against the deployed app URL.
      */
-    url: env.AUTH_PASSWORD_RESET_URL || 'http://localhost:3100/reset-password?token={token}&email={email}',
+    url: env.AUTH_PASSWORD_RESET_URL || `${/^https?:\/\//.test(String(env.APP_URL || '')) ? String(env.APP_URL).replace(/\/$/, '') : 'http://localhost:3100'}/reset-password?token={token}&email={email}`,
 
     /**
      * Token expiration time in minutes.

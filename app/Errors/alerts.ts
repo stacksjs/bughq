@@ -1,5 +1,6 @@
 import { db } from '@stacksjs/database'
 import { mail } from '@stacksjs/email'
+import { appUrl } from '../Support/urls'
 import { notifyChannels } from './channels'
 
 /**
@@ -14,8 +15,7 @@ import { notifyChannels } from './channels'
  * break the ingest path.
  */
 
-// TEMPORARY: local-dev phase; switch to https://bughq.org at launch.
-const DASHBOARD_BASE = 'http://localhost:3100'
+const DASHBOARD_BASE = appUrl()
 
 export type AlertKind = 'new' | 'regression'
 

@@ -1,4 +1,5 @@
 import { db } from '@stacksjs/database'
+import { appUrl } from '../Support/urls'
 
 /**
  * Chat alert delivery: Slack and Discord incoming webhooks.
@@ -11,8 +12,7 @@ import { db } from '@stacksjs/database'
  * turn into a chat-spam bomb.
  */
 
-// TEMPORARY: local-dev phase; switch to https://bughq.org at launch.
-const DASHBOARD_BASE = 'http://localhost:3100'
+const DASHBOARD_BASE = appUrl()
 
 export type ChannelType = 'slack' | 'discord'
 export type AlertKind = 'new' | 'regression'

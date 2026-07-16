@@ -1,4 +1,5 @@
 import { mail } from '@stacksjs/email'
+import { appUrl } from '../Support/urls'
 
 /**
  * Project invitations. An owner invites a teammate by email; we store a pending
@@ -11,8 +12,7 @@ import { mail } from '@stacksjs/email'
  * returns the join URL so the owner can copy/share it directly.
  */
 
-// TEMPORARY: local-dev phase; switch to https://bughq.org at launch.
-const DASHBOARD_BASE = 'http://localhost:3100'
+const DASHBOARD_BASE = appUrl()
 
 export function joinUrl(token: string): string {
   return `${DASHBOARD_BASE}/join/${encodeURIComponent(token)}`
