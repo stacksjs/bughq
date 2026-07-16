@@ -453,41 +453,37 @@ details.sysgroup[open] > summary .chev { transform: rotate(90deg); }
 
       <!-- Header -->
       <header class="mb-6">
-        <div class="flex items-start gap-3 mb-3">
-          <span class="rounded-full shrink-0 self-stretch" style="width:4px; background: {{ levelColor(issue.level) }}; min-height:2.6rem; box-shadow: 0 0 16px color-mix(in srgb, {{ levelColor(issue.level) }} 55%, transparent)"></span>
-          <div class="min-w-0 flex-1">
-            <div class="flex items-center gap-2 flex-wrap mb-1">
-              <span class="pill lvl lvl-{{ issue.level || 'error' }}">{{ issue.level || 'error' }}</span>
-              <span class="pill st-{{ status }}">{{ status }}</span>
-              <span class="text-xs" style="color: var(--text-3)">Last seen {{ lastSeenAgo }}</span>
-            </div>
-            <h1 class="text-lg md:text-xl font-bold tracking-tight break-words" style="line-height:1.35">{{ issue.error_type || 'Error' }}</h1>
-            <p class="text-sm mt-1 break-words" style="color: var(--text-2)">{{ (latest && latest.message) || issue.title }}</p>
-            @if (issue.culprit)
-              <p class="text-xs mt-1.5 mono truncate" style="color: var(--text-3)">{{ issue.culprit }}</p>
+        <div class="card" style="border-left: 3px solid {{ levelColor(issue.level) }}; box-shadow: -7px 0 28px -16px color-mix(in srgb, {{ levelColor(issue.level) }} 70%, transparent); padding: 1.15rem 1.35rem 1.25rem">
+          <div class="flex items-center gap-2 flex-wrap mb-3">
+            <span class="pill lvl lvl-{{ issue.level || 'error' }}">{{ issue.level || 'error' }}</span>
+            <span class="pill st-{{ status }}">{{ status }}</span>
+            <span class="text-xs" style="color: var(--text-3)">Last seen {{ lastSeenAgo }}</span>
+          </div>
+          <h1 class="mono break-words" style="font-size:1.7rem; line-height:1.15; font-weight:800; letter-spacing:-0.01em">{{ issue.error_type || 'Error' }}</h1>
+          <p class="text-base md:text-lg mt-2.5 break-words" style="color: var(--text)">{{ (latest && latest.message) || issue.title }}</p>
+          @if (issue.culprit)
+            <p class="text-xs mt-2.5 mono truncate" style="color: var(--text-3)">{{ issue.culprit }}</p>
+          @endif
+          <div class="flex flex-wrap items-center gap-2 mt-4">
+            @if (isResolved)
+              <form method="POST" action="/issue/{{ issue.id }}/status?to=unresolved">
+                <button type="submit" class="btn">Reopen</button>
+              </form>
+            @else
+              <form method="POST" action="/issue/{{ issue.id }}/status?to=resolved">
+                <button type="submit" class="btn btn-primary">&#10003; Resolve</button>
+              </form>
+            @endif
+            @if (isIgnored)
+              <form method="POST" action="/issue/{{ issue.id }}/status?to=unresolved">
+                <button type="submit" class="btn">Unignore</button>
+              </form>
+            @else
+              <form method="POST" action="/issue/{{ issue.id }}/status?to=ignored">
+                <button type="submit" class="btn">Ignore</button>
+              </form>
             @endif
           </div>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-2">
-          @if (isResolved)
-            <form method="POST" action="/issue/{{ issue.id }}/status?to=unresolved">
-              <button type="submit" class="btn">Reopen</button>
-            </form>
-          @else
-            <form method="POST" action="/issue/{{ issue.id }}/status?to=resolved">
-              <button type="submit" class="btn btn-primary">&#10003; Resolve</button>
-            </form>
-          @endif
-          @if (isIgnored)
-            <form method="POST" action="/issue/{{ issue.id }}/status?to=unresolved">
-              <button type="submit" class="btn">Unignore</button>
-            </form>
-          @else
-            <form method="POST" action="/issue/{{ issue.id }}/status?to=ignored">
-              <button type="submit" class="btn">Ignore</button>
-            </form>
-          @endif
         </div>
       </header>
 
@@ -507,15 +503,19 @@ details.sysgroup[open] > summary .chev { transform: rotate(90deg); }
                 <div style="padding:.5rem">
                   @foreach (exceptions as ex)
                     <div class="exc card" style="border-color:var(--border-2); box-shadow:none">
-                      <div class="exc-head">
-                        @if (ex.isCause)
+                      @if (ex.isCause)
+                        <!-- Cause-chain exceptions aren't in the page header, so
+                             they still lead with their own type + message. The
+                             PRIMARY exception's identity lives in the hero header
+                             above; repeating it here just steals its emphasis. -->
+                        <div class="exc-head">
                           <span class="caused">&#8627; Caused by</span>
-                        @endif
-                        <div class="exc-type">{{ ex.type }}</div>
-                        @if (ex.message)
-                          <div class="exc-msg">{{ ex.message }}</div>
-                        @endif
-                      </div>
+                          <div class="exc-type">{{ ex.type }}</div>
+                          @if (ex.message)
+                            <div class="exc-msg">{{ ex.message }}</div>
+                          @endif
+                        </div>
+                      @endif
                       <div class="frames">
                         @forelse (ex.segments as seg)
                           @if (seg.kind === 'app')
