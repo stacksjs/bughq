@@ -101,14 +101,17 @@ export default new Action({
     if (!result?.token)
       return fail('We could not sign you in.')
 
-    // Hand the token to the client (token auth uses localStorage). The token is
-    // embedded in the server response body, never in the URL.
+    // Hand the token to the client, mirroring the email/password flow exactly:
+    // localStorage for bearer API calls + the bughq_token cookie so the very
+    // first server-rendered page is already authenticated. Token is embedded in
+    // the response body, never in the URL. Then land in the app.
     const token = JSON.stringify(result.token)
     const user = JSON.stringify({ id: userId, email, name: social.name })
     return response.html(
       `<!doctype html><meta charset="utf-8"><title>Signing you in</title>`
-      + `<script>try{localStorage.setItem('token', ${token});localStorage.setItem('user', ${user})}catch(e){}`
-      + `location.replace('/account')</script>Signing you in...`,
+      + `<script>try{localStorage.setItem('token', ${token});localStorage.setItem('user', ${user});`
+      + `document.cookie='bughq_token='+${token}+'; path=/; max-age=2592000; samesite=lax'+(location.protocol==='https:'?'; secure':'')}catch(e){}`
+      + `location.replace('/dashboard')</script>Signing you in...`,
       200,
     )
   },

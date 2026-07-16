@@ -1,6 +1,14 @@
 import type { ServicesConfig } from '@stacksjs/types'
 import { env } from '@stacksjs/env'
 
+// Base URL for OAuth callback defaults: APP_URL when it's a real absolute URL
+// (prod = https://bughq.org), else the local web server. (APP_URL is a bare
+// host like `bughq.localhost` in dev, which a provider wouldn't accept.)
+function oauthBase(): string {
+  const appUrl = String(env.APP_URL || '').trim().replace(/\/$/, '')
+  return /^https?:\/\//.test(appUrl) ? appUrl : 'http://localhost:3100'
+}
+
 /**
  * **Services**
  *
@@ -24,14 +32,17 @@ export default {
   github: {
     clientId: String(env.GITHUB_CLIENT_ID || ''),
     clientSecret: String(env.GITHUB_CLIENT_SECRET || ''),
-    redirectUrl: String(env.GITHUB_REDIRECT_URL || 'http://localhost:3000/auth/github/callback'),
+    // Must match the callback ROUTE (/api/auth/{provider}/callback) and the URI
+    // registered with the provider. Defaults to APP_URL when it's absolute
+    // (prod), else the local web server. Override with *_REDIRECT_URL.
+    redirectUrl: String(env.GITHUB_REDIRECT_URL || `${oauthBase()}/api/auth/github/callback`),
     scopes: ['read:user', 'user:email'],
   },
 
   google: {
     clientId: String(env.GOOGLE_CLIENT_ID || ''),
     clientSecret: String(env.GOOGLE_CLIENT_SECRET || ''),
-    redirectUrl: String(env.GOOGLE_REDIRECT_URL || 'http://localhost:3000/auth/google/callback'),
+    redirectUrl: String(env.GOOGLE_REDIRECT_URL || `${oauthBase()}/api/auth/google/callback`),
     scopes: ['profile', 'email'],
   },
 
