@@ -1,8 +1,8 @@
 name: Deploy
 
-# Push-to-deploy, branch → environment. This app ATTACHES to the shared box
-# owned by the `stacks` project (config/cloud.ts sets `cloud.attachTo: 'stacks'`),
-# so it never provisions — it ships only its own site onto the existing box.
+# Push-to-deploy, branch → environment. This app runs on its OWN Hetzner box
+# (config/cloud.ts has no `attachTo`), so the deploy provisions/refreshes the
+# box, ships bughq's sites + the ts-cloud dashboard, and reconciles Porkbun DNS.
 #   main  → production   (bare apex domain)
 #   stage → staging      (staging.<domain>)
 #   dev   → development  (dev.<domain>)
@@ -80,8 +80,12 @@ jobs:
           DOTENV_PRIVATE_KEY_STAGING: ${{ secrets.DOTENV_PRIVATE_KEY_STAGING }}
           DOTENV_PRIVATE_KEY_DEVELOPMENT: ${{ secrets.DOTENV_PRIVATE_KEY_DEVELOPMENT }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Resolve the shared box + write this domain's DNS record.
+          # Provision/refresh bughq's own box + reconcile Porkbun DNS
+          # (apex/www A upserted to the box IP + additive config/dns.ts sync).
           HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
           PORKBUN_API_KEY: ${{ secrets.PORKBUN_API_KEY }}
           PORKBUN_SECRET_KEY: ${{ secrets.PORKBUN_SECRET_KEY }}
+          # Serve the ts-cloud management dashboard at cloud.bughq.org
+          # (also carried encrypted in .env.production; set here explicitly).
+          TS_CLOUD_UI_DOMAIN: cloud.bughq.org
           COPYFILE_DISABLE: '1'
