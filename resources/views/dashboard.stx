@@ -176,63 +176,6 @@ catch {
   live = false
 }
 
-// Framework-specific install instructions, keyed off the project's platform.
-// Install is key-only: the ingest key is globally unique, so it identifies the
-// project on its own (Flare-style) — no project id, no DSN. The SDKs default to
-// the bughq ingest host, so integrating is only ever a single key.
-// TEMPORARY: the snippet src points at the local ingest during the local-dev
-// phase; switch back to https://bughq.org/sdk.js at launch.
-function installGuide(platform, key) {
-  const p = String(platform || 'javascript').toLowerCase()
-  const scriptTag = `<script src="http://localhost:3108/sdk.js"\n        data-key="${key}"><\/script>`
-  if (p === 'vue') {
-    return {
-      label: 'Vue',
-      install: 'bun add @bughq/vue',
-      code: `import BugHQ from '@bughq/vue'\n\napp.use(BugHQ, { key: '${key}' })`,
-    }
-  }
-  if (p === 'nuxt') {
-    return {
-      label: 'Nuxt',
-      install: 'bun add @bughq/nuxt',
-      code: `// nuxt.config.ts\nexport default defineNuxtConfig({\n  modules: ['@bughq/nuxt'],\n  bughq: { key: '${key}' },\n})`,
-    }
-  }
-  if (p === 'node') {
-    return {
-      label: 'Node.js',
-      install: 'bun add @bughq/sdk',
-      code: `import { bughq } from '@bughq/sdk'\n\nbughq.init({ key: '${key}' })`,
-    }
-  }
-  if (p === 'react') {
-    return {
-      label: 'React',
-      install: 'bun add @bughq/sdk',
-      code: `import { bughq } from '@bughq/sdk'\n\nbughq.init({ key: '${key}' })\n// then capture render errors from an ErrorBoundary`,
-    }
-  }
-  if (p === 'laravel') {
-    return {
-      label: 'Laravel',
-      install: 'composer require bughq/bughq-laravel',
-      code: `# .env\nBUGHQ_KEY=${key}\n\n# exceptions, failed jobs, and breadcrumbs are captured automatically`,
-    }
-  }
-  if (p === 'php') {
-    return {
-      label: 'PHP',
-      install: 'composer require bughq/bughq',
-      code: `use BugHQ\\BugHQ;\n\nBugHQ::init(['key' => '${key}']);`,
-    }
-  }
-  // javascript / browser / other — drop-in script tag
-  return { label: 'HTML', install: '', code: scriptTag }
-}
-const guide = activeProject
-  ? installGuide(activeProject.platform, activeProject.ingest_key)
-  : null
 
 // Severity drives the one accent-adjacent semantic color used on the list rail.
 // These are real state colors, not decoration.
@@ -314,8 +257,6 @@ select.panel:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--b
 @media (prefers-reduced-motion: reduce) { .reveal { animation: none; opacity: 1; transform: none; } }
 summary { list-style: none; cursor: pointer; }
 summary::-webkit-details-marker { display: none; }
-.copy-btn { position: absolute; top: 8px; right: 8px; font: 500 11px/1 var(--sans); padding: 5px 9px; border-radius: 7px; border: 1px solid var(--border); background: var(--panel); color: var(--text-3); cursor: pointer; }
-.copy-btn:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
 .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border: 1px solid var(--border); border-radius: 9px; color: var(--text-2); background: var(--panel); cursor: pointer; transition: color 0.15s ease, border-color 0.15s ease; }
 .icon-btn:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
 .icon-btn svg { width: 17px; height: 17px; }
@@ -398,28 +339,6 @@ summary::-webkit-details-marker { display: none; }
       <div class="panel px-4 py-3 mb-8 text-sm reveal" style="color: var(--text-2)">
         <span class="font-semibold" style="color: var(--text)">Waiting for data.</span> Make sure Postgres is provisioned.
       </div>
-    @endif
-
-    @if (activeProject)
-      <details id="setup-panel" class="panel mb-8 reveal" data-open="{{ counts.events === 0 ? '1' : '0' }}">
-        <summary class="flex items-center justify-between px-5 py-4">
-          <span class="text-sm font-semibold">Setup · install bughq in {{ activeProject.name }}</span>
-          <span class="mono text-[11px] px-2 py-0.5 rounded-full" style="border: 1px solid var(--border); color: var(--text-3)">{{ guide.label }}</span>
-        </summary>
-        <div class="px-5 pb-5">
-          <p class="text-sm mb-3.5" style="color: var(--text-3)">Wire this into your app to start capturing errors. They group into issues here automatically.</p>
-          @if (guide.install)
-            <div class="relative mb-2">
-              <div class="mono text-xs px-4 py-2.5 pr-16 rounded-lg" style="background: var(--bg); border: 1px solid var(--border); color: var(--text-2); overflow-x: auto">{{ guide.install }}</div>
-              <button type="button" class="copy-btn" data-copy>Copy</button>
-            </div>
-          @endif
-          <div class="relative">
-            <div class="mono text-xs px-4 py-3.5 pr-16 rounded-lg" style="background: var(--bg); border: 1px solid var(--border); color: var(--text-2); white-space: pre; overflow-x: auto">{{ guide.code }}</div>
-            <button type="button" class="copy-btn" data-copy>Copy</button>
-          </div>
-        </div>
-      </details>
     @endif
 
     <!-- Stats: hairline-separated, mono numerics, no heavy card chrome -->
@@ -579,23 +498,6 @@ summary::-webkit-details-marker { display: none; }
       paintTheme()
     })
   }
-
-  // Setup panel: open by default for a fresh project; wire copy buttons.
-  var setup = document.getElementById('setup-panel')
-  if (setup && setup.getAttribute('data-open') === '1')
-    setup.open = true
-  document.querySelectorAll('.copy-btn').forEach(function (b) {
-    b.addEventListener('click', function () {
-      var code = b.previousElementSibling ? b.previousElementSibling.textContent : ''
-      if (navigator.clipboard && code) {
-        navigator.clipboard.writeText(code).then(function () {
-          var prev = b.textContent
-          b.textContent = 'Copied'
-          setTimeout(function () { b.textContent = prev }, 1200)
-        })
-      }
-    })
-  })
 
   // Chrome: logout + upgrade/plan badge.
   var btn = document.createElement('button')

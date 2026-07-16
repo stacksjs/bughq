@@ -32,7 +32,7 @@ let invites = []
 if (user) {
   // Owned projects only — settings is the owner's admin surface.
   projects = (await db.unsafe(
-    'SELECT id, name, ingest_key FROM projects WHERE owner_id = $1 ORDER BY created_at DESC NULLS LAST, id',
+    'SELECT id, name, platform, ingest_key, is_active FROM projects WHERE owner_id = $1 ORDER BY created_at DESC NULLS LAST, id',
     [Number(user.id)],
   )) ?? []
   if (projects.length === 0)
@@ -85,6 +85,28 @@ const memberView = members.map(m => ({ id: m.id, email: m.email }))
 const inviteView = invites.map(i => ({ id: i.id, email: i.email, registered: !!i.registered, join: JOIN_BASE + i.token }))
 const keyFull = activeProject ? String(activeProject.ingest_key || '') : ''
 const keyMask = maskKey(keyFull)
+
+// Framework-specific install snippet, keyed off the project's platform. Key-only
+// (Flare-style): the ingest key alone identifies the project — no project id, no DSN.
+// TEMPORARY: the snippet src points at the local ingest; switch to https://bughq.org/sdk.js at launch.
+function installGuide(platform, key) {
+  const p = String(platform || 'javascript').toLowerCase()
+  const scriptTag = `<script src="http://localhost:3108/sdk.js"\n        data-key="${key}"><\/script>`
+  if (p === 'vue')
+    return { label: 'Vue', install: 'bun add @bughq/vue', code: `import BugHQ from '@bughq/vue'\n\napp.use(BugHQ, { key: '${key}' })` }
+  if (p === 'nuxt')
+    return { label: 'Nuxt', install: 'bun add @bughq/nuxt', code: `// nuxt.config.ts\nexport default defineNuxtConfig({\n  modules: ['@bughq/nuxt'],\n  bughq: { key: '${key}' },\n})` }
+  if (p === 'node')
+    return { label: 'Node.js', install: 'bun add @bughq/sdk', code: `import { bughq } from '@bughq/sdk'\n\nbughq.init({ key: '${key}' })` }
+  if (p === 'react')
+    return { label: 'React', install: 'bun add @bughq/sdk', code: `import { bughq } from '@bughq/sdk'\n\nbughq.init({ key: '${key}' })\n// then capture render errors from an ErrorBoundary` }
+  if (p === 'laravel')
+    return { label: 'Laravel', install: 'composer require bughq/bughq-laravel', code: `# .env\nBUGHQ_KEY=${key}\n\n# exceptions, failed jobs, and breadcrumbs are captured automatically` }
+  if (p === 'php')
+    return { label: 'PHP', install: 'composer require bughq/bughq', code: `use BugHQ\\BugHQ;\n\nBugHQ::init(['key' => '${key}']);` }
+  return { label: 'HTML', install: '', code: scriptTag }
+}
+const guide = activeProject ? installGuide(activeProject.platform, keyFull) : { label: '', install: '', code: '' }
 </script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -150,6 +172,15 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
 .tabnav a { color: var(--text-2); border: 1px solid var(--border); border-radius: 999px; transition: color .15s ease, border-color .15s ease; }
 .tabnav a:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
 .danger-panel { border-color: color-mix(in srgb, var(--warn) 40%, var(--border)); }
+.code-block { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; color: var(--text-2); font-family: var(--mono); font-size: 12px; line-height: 1.5; padding: 12px 16px; padding-right: 64px; overflow-x: auto; }
+.copy-btn { position: absolute; top: 8px; right: 8px; font: 500 11px/1 var(--sans); padding: 5px 9px; border-radius: 7px; border: 1px solid var(--border); background: var(--panel); color: var(--text-3); cursor: pointer; transition: color .15s ease, border-color .15s ease; }
+.copy-btn:hover { color: var(--text); border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.dz-div { height: 1px; background: color-mix(in srgb, var(--warn) 20%, var(--border)); }
+.dz-overlay { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(2,4,10,0.62); backdrop-filter: blur(3px); animation: dz-fade 0.12s ease; }
+.dz-overlay[hidden] { display: none; }
+.dz-card { width: 100%; max-width: 440px; padding: 22px; box-shadow: 0 24px 70px rgba(0,0,0,0.5); animation: dz-pop 0.14s cubic-bezier(0.2,0.8,0.3,1); }
+@keyframes dz-fade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes dz-pop { from { opacity: 0; transform: translateY(6px) scale(0.98) } to { opacity: 1; transform: none } }
 </style>
 
 <!-- Apply the saved theme before first paint (no flash of the wrong theme). -->
@@ -195,11 +226,33 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
       </div>
 
       <nav class="tabnav flex items-center gap-2 mb-8 text-sm">
+        <a href="#install" class="px-3 py-1.5 font-medium">Install</a>
         <a href="#keys" class="px-3 py-1.5 font-medium">Keys</a>
         <a href="#members" class="px-3 py-1.5 font-medium">Members</a>
         <a href="#alerts" class="px-3 py-1.5 font-medium">Alerts</a>
         <a href="#danger" class="px-3 py-1.5 font-medium">Danger</a>
       </nav>
+
+      <!-- ============================ INSTALL ============================ -->
+      <section id="install" class="sec mb-10">
+        <div class="sec-title mb-3">Install</div>
+        <div class="panel px-5 py-5">
+          <div class="flex items-center justify-between gap-3 mb-3.5">
+            <p class="text-sm" style="color: var(--text-3)">Wire bughq into <span class="mono" style="color: var(--text-2)">{{ activeProject.name }}</span> to start capturing errors — they group into issues automatically.</p>
+            <span class="badge badge-soft shrink-0">{{ guide.label }}</span>
+          </div>
+          @if (guide.install)
+            <div class="relative mb-2">
+              <div class="code-block">{{ guide.install }}</div>
+              <button type="button" class="copy-btn" data-copy>Copy</button>
+            </div>
+          @endif
+          <div class="relative">
+            <div class="code-block" style="white-space: pre">{{ guide.code }}</div>
+            <button type="button" class="copy-btn" data-copy>Copy</button>
+          </div>
+        </div>
+      </section>
 
       <!-- ============================ KEYS ============================ -->
       <section id="keys" class="sec mb-10">
@@ -318,18 +371,46 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
       <!-- ============================ DANGER ============================ -->
       <section id="danger" class="sec mb-6">
         <div class="sec-title mb-3" style="color: var(--warn)">Danger zone</div>
-        <div class="panel danger-panel px-5 py-5">
-          <div class="text-sm font-semibold mb-1">Delete this project</div>
-          <p class="text-sm mb-4" style="color: var(--text-3)">
-            Permanently deletes <span class="mono" style="color: var(--text-2)">{{ activeProject.name }}</span> and all of its issues, events, alert channels, and members. This cannot be undone.
-          </p>
-          <div class="flex items-center gap-2 flex-wrap">
-            <input id="del-confirm" type="text" class="field flex-1 min-w-[220px] px-3.5 py-2.5 text-sm mono" placeholder="Type “{{ activeProject.id }}” to confirm" autocomplete="off" spellcheck="false">
-            <button id="del-btn" class="btn-danger px-4 py-2.5 text-sm font-semibold" disabled>Delete project</button>
+        <div class="panel danger-panel" data-project-name="{{ activeProject.name }}" data-active="{{ activeProject.is_active === false ? '0' : '1' }}">
+          <!-- Archive / Unarchive -->
+          <div class="flex items-center justify-between gap-4 px-5 py-4">
+            <div class="min-w-0">
+              @if (activeProject.is_active === false)
+                <div class="text-sm font-semibold mb-0.5">Unarchive this project</div>
+                <p class="text-sm" style="color: var(--text-3)"><span class="mono" style="color: var(--text-2)">{{ activeProject.name }}</span> is archived and isn’t capturing new errors. Unarchiving resumes ingestion right away.</p>
+              @else
+                <div class="text-sm font-semibold mb-0.5">Archive this project</div>
+                <p class="text-sm" style="color: var(--text-3)">Stops capturing new errors and pauses alerts for <span class="mono" style="color: var(--text-2)">{{ activeProject.name }}</span>. Existing issues and events are kept — you can unarchive anytime.</p>
+              @endif
+            </div>
+            <button id="archive-btn" class="btn-danger px-4 py-2.5 text-sm font-semibold whitespace-nowrap flex-none">{{ activeProject.is_active === false ? 'Unarchive' : 'Archive' }}</button>
           </div>
-          <span id="del-note" class="note text-xs mt-2.5"></span>
+          <div class="dz-div"></div>
+          <!-- Delete -->
+          <div class="flex items-center justify-between gap-4 px-5 py-4">
+            <div class="min-w-0">
+              <div class="text-sm font-semibold mb-0.5">Delete this project</div>
+              <p class="text-sm" style="color: var(--text-3)">Permanently deletes <span class="mono" style="color: var(--text-2)">{{ activeProject.name }}</span> and all of its issues, events, alert channels, and members. This cannot be undone.</p>
+            </div>
+            <button id="delete-btn" class="btn-danger px-4 py-2.5 text-sm font-semibold whitespace-nowrap flex-none">Delete</button>
+          </div>
         </div>
       </section>
+
+      <!-- Confirm modal (archive / delete): type the project name to confirm -->
+      <div id="dz-modal" class="dz-overlay" hidden>
+        <div class="dz-card panel" role="dialog" aria-modal="true" aria-labelledby="dz-title">
+          <div id="dz-title" class="text-base font-semibold mb-1"></div>
+          <p id="dz-desc" class="text-sm mb-4" style="color: var(--text-2)"></p>
+          <label class="block text-xs mb-1.5" style="color: var(--text-3)">Type <span class="mono" id="dz-name" style="color: var(--text-2)"></span> to confirm</label>
+          <input id="dz-input" type="text" class="field w-full px-3.5 py-2.5 text-sm mono mb-4" autocomplete="off" autocapitalize="off" spellcheck="false">
+          <div class="flex items-center justify-end gap-2">
+            <button id="dz-cancel" type="button" class="btn-ghost px-4 py-2.5 text-sm font-medium">Cancel</button>
+            <button id="dz-confirm" type="button" class="btn-danger px-4 py-2.5 text-sm font-semibold" disabled></button>
+          </div>
+          <span id="dz-note" class="note text-xs mt-2.5"></span>
+        </div>
+      </div>
     @endif
 
   </div>
@@ -371,6 +452,20 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
     el.style.color = ok ? 'var(--ok)' : 'var(--accent)'
     el.classList.add('show')
   }
+
+  // ---- Install: copy buttons ----
+  document.querySelectorAll('.copy-btn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var code = b.previousElementSibling ? b.previousElementSibling.textContent : ''
+      if (navigator.clipboard && code) {
+        navigator.clipboard.writeText(code).then(function () {
+          var prev = b.textContent
+          b.textContent = 'Copied'
+          setTimeout(function () { b.textContent = prev }, 1200)
+        })
+      }
+    })
+  })
 
   // ---- Project switcher (owner's own projects) ----
   var sw = document.getElementById('proj-switch')
@@ -526,22 +621,94 @@ body { background: var(--bg); color: var(--text); font-family: var(--sans); -web
     }
   })
 
-  // ---- Danger zone: type-to-confirm delete ----
-  var delInput = document.getElementById('del-confirm')
-  var delBtn = document.getElementById('del-btn')
-  var delNote = document.getElementById('del-note')
-  delInput.addEventListener('input', function () { delBtn.disabled = (this.value.trim() !== projectId) })
-  delBtn.addEventListener('click', function () {
-    if (delInput.value.trim() !== projectId) return
-    delBtn.disabled = true; delBtn.textContent = 'Deleting…'
-    fetch(proj, { method: 'DELETE', headers: auth })
-      .then(function (r) {
-        if (r.ok) {
-          document.cookie = 'bughq_project=; path=/; max-age=0'
-          window.location.assign('/projects')
-        } else { delBtn.disabled = false; delBtn.textContent = 'Delete project'; flash(delNote, 'Delete failed.', false) }
+  // ---- Danger zone: archive / delete behind a type-to-confirm modal ----
+  var dzPanel = document.querySelector('.danger-panel')
+  if (dzPanel) {
+    var projectName = dzPanel.getAttribute('data-project-name') || ''
+    var isActive = dzPanel.getAttribute('data-active') !== '0'
+    var modal = document.getElementById('dz-modal')
+    var mTitle = document.getElementById('dz-title')
+    var mDesc = document.getElementById('dz-desc')
+    var mName = document.getElementById('dz-name')
+    var mInput = document.getElementById('dz-input')
+    var mConfirm = document.getElementById('dz-confirm')
+    var mCancel = document.getElementById('dz-cancel')
+    var mNote = document.getElementById('dz-note')
+    var mAction = null
+
+    function closeModal() {
+      modal.setAttribute('hidden', '')
+      mInput.value = ''; mConfirm.disabled = true
+      mNote.classList.remove('show'); mAction = null
+    }
+    function openModal(opts) {
+      mTitle.textContent = opts.title
+      mDesc.textContent = opts.desc
+      mName.textContent = projectName
+      mConfirm.textContent = opts.confirmText
+      mConfirm.setAttribute('data-label', opts.confirmText)
+      mInput.value = ''; mConfirm.disabled = true
+      mNote.classList.remove('show')
+      mAction = opts.onConfirm
+      modal.removeAttribute('hidden')
+      setTimeout(function () { mInput.focus() }, 20)
+    }
+    mInput.addEventListener('input', function () { mConfirm.disabled = (this.value.trim() !== projectName) })
+    mCancel.addEventListener('click', closeModal)
+    modal.addEventListener('click', function (e) { if (e.target === modal) closeModal() })
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !modal.hasAttribute('hidden')) closeModal() })
+    mConfirm.addEventListener('click', function () {
+      if (mInput.value.trim() !== projectName || !mAction) return
+      mConfirm.disabled = true
+      mAction()
+    })
+    function failConfirm(msg) {
+      mConfirm.disabled = false
+      mConfirm.textContent = mConfirm.getAttribute('data-label')
+      flash(mNote, msg, false)
+    }
+
+    var archiveBtn = document.getElementById('archive-btn')
+    archiveBtn.addEventListener('click', function () {
+      if (isActive) {
+        openModal({
+          title: 'Archive ' + projectName + '?',
+          desc: 'bughq will stop capturing new errors and pause alerts for this project. Existing issues and events are kept, and you can unarchive anytime.',
+          confirmText: 'Archive project',
+          onConfirm: function () {
+            mConfirm.textContent = 'Archiving…'
+            fetch(proj + '/archive', { method: 'POST', headers: auth, body: JSON.stringify({ archived: true }) })
+              .then(function (r) { if (r.ok) window.location.reload(); else failConfirm('Archive failed.') })
+              .catch(function () { failConfirm('Network error.') })
+          },
+        })
+      } else {
+        // Unarchive is non-destructive — no confirmation needed.
+        archiveBtn.disabled = true; archiveBtn.textContent = 'Unarchiving…'
+        fetch(proj + '/archive', { method: 'POST', headers: auth, body: JSON.stringify({ archived: false }) })
+          .then(function (r) { if (r.ok) window.location.reload(); else { archiveBtn.disabled = false; archiveBtn.textContent = 'Unarchive' } })
+          .catch(function () { archiveBtn.disabled = false; archiveBtn.textContent = 'Unarchive' })
+      }
+    })
+
+    document.getElementById('delete-btn').addEventListener('click', function () {
+      openModal({
+        title: 'Delete ' + projectName + '?',
+        desc: 'This permanently deletes the project and all of its issues, events, alert channels, and members. This cannot be undone.',
+        confirmText: 'Delete project',
+        onConfirm: function () {
+          mConfirm.textContent = 'Deleting…'
+          fetch(proj, { method: 'DELETE', headers: auth })
+            .then(function (r) {
+              if (r.ok) {
+                document.cookie = 'bughq_project=; path=/; max-age=0'
+                window.location.assign('/projects')
+              } else { failConfirm('Delete failed.') }
+            })
+            .catch(function () { failConfirm('Network error.') })
+        },
       })
-      .catch(function () { delBtn.disabled = false; delBtn.textContent = 'Delete project'; flash(delNote, 'Network error.', false) })
-  })
+    })
+  }
 })()
 </script>

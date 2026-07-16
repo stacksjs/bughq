@@ -49,8 +49,8 @@ async function handleSubmit(e) {
       loading.set(false)
       return
     }
-    // Straight into the new project's dashboard (which shows the ingest snippet).
-    window.location.assign(`/dashboard?project=${encodeURIComponent(data.project.id)}`)
+    // Straight into the new project's Settings → Install, where the setup snippet lives.
+    window.location.assign(`/settings?project=${encodeURIComponent(data.project.id)}`)
   }
   catch {
     error.set('Something went wrong. Please try again.')

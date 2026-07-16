@@ -211,6 +211,23 @@ route.delete('/api/projects/{projectId}', async (request: any) => {
   return json({ ok: true })
 }).skipCsrf()
 
+// Archive / unarchive a project (owner-only). Archiving flips is_active off, so
+// the ingest endpoint rejects new events (see app/Errors/ingest.ts) and alerts
+// pause — but every issue, event, and member is kept. Fully reversible: pass
+// { archived: false } to bring it back. Body defaults to archiving.
+route.post('/api/projects/{projectId}/archive', async (request: any) => {
+  const user = await currentUser(request)
+  if (!user)
+    return json({ error: 'unauthorized' }, 401)
+  const projectId = request.params.projectId
+  if (!(await ownsProject(user, projectId)))
+    return json({ error: 'not found' }, 404)
+
+  const archived = (request.jsonBody ?? {}).archived !== false
+  await db.unsafe('UPDATE projects SET is_active = $1, updated_at = NOW() WHERE id = $2', [!archived, projectId])
+  return json({ ok: true, is_active: !archived })
+}).skipCsrf()
+
 // List a project's people (owner-only): active members plus pending invites,
 // unified with a `kind` so the UI can badge them. The owner is not a row here;
 // the caller renders it from the project's owner_id.
