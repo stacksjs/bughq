@@ -61,7 +61,7 @@ if (user) {
   // so shared projects appear in the switcher just like owned ones.
   const userEmail = String(user.email || '').trim().toLowerCase()
   projects = (await db.unsafe(
-    `SELECT DISTINCT p.id, p.name, p.platform, p.ingest_key, p.created_at,
+    `SELECT DISTINCT p.id, p.name, p.platform, p.ingest_key, p.created_at, p.is_active,
             (p.owner_id = $1) AS is_owner
      FROM projects p
      LEFT JOIN project_members m ON m.project_id = p.id AND lower(m.email) = $2
@@ -304,11 +304,11 @@ summary::-webkit-details-marker { display: none; }
           <select onchange="document.cookie = 'bughq_project=' + encodeURIComponent(this.value) + '; path=/; max-age=31536000; samesite=lax'; location.href = '{{ pageUrl({ page: 1 }) }}'"
                   class="panel mono px-3 py-1.5 text-sm" style="color: var(--text-2)">
             @foreach (projects as p)
-              <option value="{{ p.id }}" {{ p.id === projectId ? 'selected' : '' }}>{{ p.name }}</option>
+              <option value="{{ p.id }}" {{ p.id === projectId ? 'selected' : '' }}>{{ p.name }}{{ p.is_active === false ? ' (archived)' : '' }}</option>
             @endforeach
           </select>
         @else
-          <span class="mono text-sm" style="color: var(--text-2)">{{ activeProject.name }}</span>
+          <span class="mono text-sm" style="color: var(--text-2)">{{ activeProject.name }}{{ activeProject.is_active === false ? ' (archived)' : '' }}</span>
         @endif
         <a href="/projects" class="pill px-3 py-1.5 text-sm font-medium border" style="color: var(--text-2); border-color: var(--border)">All apps</a>
         <a href="/projects/new" class="pill px-3 py-1.5 text-sm font-medium border" style="color: var(--text-2); border-color: var(--border)">+ New app</a>

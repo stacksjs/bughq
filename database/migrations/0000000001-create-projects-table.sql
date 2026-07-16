@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS "projects" (
   "dsn" varchar(255),
   "ingest_key" varchar(255),
   "owner_id" integer,
-  "is_active" boolean,
+  "is_active" boolean not null default true,
   "created_at" timestamp not null default CURRENT_TIMESTAMP,
   "updated_at" timestamp
 );

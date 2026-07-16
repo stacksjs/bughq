@@ -100,6 +100,8 @@ function installGuide(platform, key) {
     return { label: 'Node.js', install: 'bun add @bughq/sdk', code: `import { bughq } from '@bughq/sdk'\n\nbughq.init({ key: '${key}' })` }
   if (p === 'react')
     return { label: 'React', install: 'bun add @bughq/sdk', code: `import { bughq } from '@bughq/sdk'\n\nbughq.init({ key: '${key}' })\n// then capture render errors from an ErrorBoundary` }
+  if (p === 'javascript' || p === 'browser')
+    return { label: 'JavaScript', install: '', code: scriptTag }
   if (p === 'laravel')
     return { label: 'Laravel', install: 'composer require bughq/bughq-laravel', code: `# .env\nBUGHQ_KEY=${key}\n\n# exceptions, failed jobs, and breadcrumbs are captured automatically` }
   if (p === 'php')
