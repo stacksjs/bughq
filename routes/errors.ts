@@ -57,6 +57,18 @@ function clip(value: string, max: number): string {
   return value.length > max ? `${value.slice(0, max)}…[truncated]` : value
 }
 
+// Hard cap for varchar(255) columns. Postgres RAISES on overflow, which aborts
+// the whole INSERT and drops the event — so every client-supplied or derived
+// string bound for a 255-char column passes through here first. Note plain
+// `clip(x, 255)` is NOT safe for these: its "…[truncated]" suffix pushes the
+// result past 255. Returns null for nullish input so it drops straight in.
+function col255(value: unknown): string | null {
+  if (value == null)
+    return null
+  const s = String(value)
+  return s.length > 255 ? `${s.slice(0, 254)}…` : s
+}
+
 /**
  * Bundle the SDK's rich fields into a single JSON blob stored in
  * `error_events.metadata` (widened to hold it, migration 0129). Keeps a flat,
@@ -280,9 +292,10 @@ route.post('/errors', async (request: any) => {
       project_id: String(projectId),
       fingerprint: fp,
       title,
-      culprit: where,
-      error_type: errorType,
-      level: body.level ?? 'error',
+      culprit: col255(where),
+      // varchar(255) columns — cap so an oversized value can't abort the insert.
+      error_type: col255(errorType),
+      level: col255(body.level ?? 'error'),
       status: 'unresolved',
       count: 1,
       users_affected: 0,
@@ -309,17 +322,18 @@ route.post('/errors', async (request: any) => {
     issue_id: issueId,
     message,
     stack: stack ?? null,
-    error_type: errorType,
-    category: categorize(errorType, message),
-    severity: body.level ?? 'error',
+    // varchar(255) columns — cap so an oversized value can't abort the insert.
+    error_type: col255(errorType),
+    category: col255(categorize(errorType, message)),
+    severity: col255(body.level ?? 'error'),
     fingerprint: fp,
     url: body.url ?? null,
-    browser: body.browser ?? null,
-    os: body.os ?? null,
+    browser: col255(body.browser),
+    os: col255(body.os),
     user_agent: request.headers?.get('user-agent') ?? null,
-    framework: body.framework ?? null,
-    release: body.release ?? null,
-    environment: body.environment ?? 'production',
+    framework: col255(body.framework),
+    release: col255(body.release),
+    environment: col255(body.environment ?? 'production'),
     user_context: body.user ? JSON.stringify(body.user) : null,
     metadata: buildMetadata(body),
     timestamp: now,
