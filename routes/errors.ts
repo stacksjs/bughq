@@ -147,6 +147,26 @@ function userEmail(user: any): string {
   return String(user?.email ?? '').trim().toLowerCase()
 }
 
+// CSRF belt-and-suspenders for the cookie-authenticated, CSRF-exempt issue
+// endpoints. These accept a `token` cookie and are `.skipCsrf()`, so SameSite
+// (Lax) is the only thing stopping a cross-site POST today. When the browser
+// sends an Origin, require it to match this host; a forged cross-site request
+// carries the attacker's Origin and is rejected. Absent Origin (non-browser
+// callers, some same-origin form posts) falls through to the cookie+SameSite
+// gate, and bearer-token API calls are same-origin anyway.
+function sameOrigin(request: any): boolean {
+  const origin = request.headers?.get?.('origin')
+  if (!origin)
+    return true
+  try {
+    const host = request.headers?.get?.('x-forwarded-host') || request.headers?.get?.('host') || new URL(request.url).host
+    return new URL(origin).host === host
+  }
+  catch {
+    return false
+  }
+}
+
 /**
  * True when `user` can access the issue: they own the project it belongs to, or
  * they're an invited member of it. Viewing and triage (resolve/ignore) are open
@@ -385,6 +405,8 @@ route.get('/api/issues/{issueId}', async (request: any) => {
 })
 
 route.post('/api/issues/{issueId}/resolve', async (request: any) => {
+  if (!sameOrigin(request))
+    return json({ error: 'forbidden' }, 403)
   const issueId = request.params.issueId
   const user = await userFromRequest(request)
   if (!user)
@@ -402,6 +424,8 @@ route.post('/api/issues/{issueId}/resolve', async (request: any) => {
 const ISSUE_STATUSES = new Set(['unresolved', 'resolved', 'ignored'])
 
 route.post('/issue/{issueId}/status', async (request: any) => {
+  if (!sameOrigin(request))
+    return json({ error: 'forbidden' }, 403)
   const issueId = request.params.issueId
   const to = request.query?.to ?? request.jsonBody?.to ?? 'resolved'
   if (!ISSUE_STATUSES.has(to))
