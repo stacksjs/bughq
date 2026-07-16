@@ -143,6 +143,7 @@
     "@stacksjs/utils": "^0.70.90",
     "@stacksjs/validation": "^0.70.90",
     "@stacksjs/whois": "^0.70.90",
+    "bun-plugin-auto-imports": "^0.4.1",
     "stacks": "^0.70.90"
   },
   "devDependencies": {
