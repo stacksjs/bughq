@@ -10,7 +10,7 @@ import { env } from '@stacksjs/env'
  * so we only trust it when it actually looks like a URL and otherwise fall back
  * to the local dev servers.
  */
-function abs(value: string | undefined, fallback: string): string {
+function abs(value: unknown, fallback: string): string {
   const s = String(value || '').trim().replace(/\/$/, '')
   return /^https?:\/\//.test(s) ? s : fallback
 }
