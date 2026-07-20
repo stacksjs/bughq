@@ -69,7 +69,7 @@ jobs:
           bun run zip:all
 
       - name: Create GitHub Release
-        uses: stacksjs/action-releaser@v1.2.9
+        uses: stacksjs/action-releaser@v1.2.11
         with:
           files: |
             storage/framework/core/buddy/bin/buddy-linux-x64
