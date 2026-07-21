@@ -9,6 +9,17 @@ PANTRY_INSTALLER="${ROOT_DIR}/storage/framework/scripts/pantry-install"
 PANTRY_BOOTSTRAP_TIMEOUT_SECONDS="${PANTRY_BOOTSTRAP_TIMEOUT_SECONDS:-600}"
 PANTRY_DEPENDENCIES_TIMEOUT_SECONDS="${PANTRY_DEPENDENCIES_TIMEOUT_SECONDS:-1200}"
 
+# --- Fast local dev override -------------------------------------------------
+# Bare `./buddy dev` blocks ~46s waiting on a phantom Vue/Vite frontend that
+# never binds for this pure-stx app (stacksjs/stacks#2036), then prints a :3100
+# URL that refuses connections. Redirect it to the direct two-server dev runner
+# (API + views, ~1s). Only BARE `dev` is intercepted — `dev:api`,
+# `dev --frontend`, `dev <server>` all fall through to the real CLI unchanged.
+# Escape hatch: `STACKS_FULL_DEV=1 ./buddy dev` runs the original CLI dev.
+if [ "$1" = "dev" ] && [ "$#" -eq 1 ] && [ "${STACKS_FULL_DEV:-}" != "1" ] && [ -f "${ROOT_DIR}/scripts/dev.ts" ] && command -v bun >/dev/null 2>&1; then
+  exec bun "${ROOT_DIR}/scripts/dev.ts"
+fi
+
 # Resolve which CLI entrypoint to invoke. Resolution order matches the
 # action-runner fallback chain in `@stacksjs/actions`:
 #

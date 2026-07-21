@@ -29,7 +29,7 @@
     "dev": "bun scripts/dev.ts",
     "development": "bun scripts/dev.ts",
     "dev:api": "./buddy dev:api",
-    "dev:full": "./buddy dev",
+    "dev:full": "STACKS_FULL_DEV=1 ./buddy dev",
     "build": "./buddy build",
     "prod": "./buddy build",
     "deploy": "./buddy deploy",
