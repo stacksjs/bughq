@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Backend error tracking - bughq</title>
+    <meta name="description" content="Capture server, edge, and background-job failures with the request, release, and environment attached, so every 500 names the route and deploy that broke it.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="/marketing.css">
+  </head>
+  <body>
+    @include('SiteNav')
+
+    <main>
+      <nav class="subnav shell" aria-label="Breadcrumb">
+        <a href="/">Home</a><span class="sep">/</span>
+        <a href="/use-cases">Use cases</a><span class="sep">/</span>
+        <span>Backend</span>
+      </nav>
+
+      <section class="feat-hero shell">
+        <span class="kicker">Backend</span>
+        <h1>Every 500 arrives with the request that caused it.</h1>
+        <p>A stack trace on its own is half the story. bughq attaches the route, method, release, and environment to each server error, so triage starts with the facts instead of grepping a log for the surrounding lines.</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="/register">Get started</a>
+          <a class="btn ghost" href="/features/capture">Automatic capture</a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Backend capture preview">
+        <div class="code" style="max-width: 700px">
+          <div class="code-bar"><span class="chart-cap">app/server.ts</span></div>
+          <pre class="code-body"><code>import { bughq } from '@bughq/sdk'
+
+bughq.init({
+  dsn: 'https://ingest.bughq.org/p_9f2c',
+  release: 'api@2.14.0',
+  environment: 'production',
+})
+
+// uncaught exceptions and unhandled rejections across
+// requests, workers, and cron jobs report through one SDK</code></pre>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="scenarios-heading">
+        <div class="section-head">
+          <h2 id="scenarios-heading" class="section-title">Where it earns its keep</h2>
+        </div>
+        <div class="chips">
+          <div class="chip">
+            <h3>Request handlers</h3>
+            <p>An unhandled exception in a route reports with the method, path, status, and the release serving that request.</p>
+          </div>
+          <div class="chip">
+            <h3>Background jobs and queues</h3>
+            <p>A worker that throws mid-batch is captured with the job name and payload shape, not lost to a detached process.</p>
+          </div>
+          <div class="chip">
+            <h3>Edge and serverless</h3>
+            <p>Short-lived functions flush their errors before the runtime tears down, so nothing is dropped on cold exit.</p>
+          </div>
+          <div class="chip">
+            <h3>Scheduled tasks</h3>
+            <p>A cron that fails at 3am is grouped and counted like any other issue, ready in the morning with its own history.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="What you get">
+        <div class="metrics">
+          <div class="metric">
+            <div class="m-value">Full request</div>
+            <div class="m-label">Route, method, status, and metadata attach to every server error.</div>
+          </div>
+          <div class="metric">
+            <div class="m-value">One SDK</div>
+            <div class="m-label">Requests, workers, and cron jobs report through the same init call.</div>
+          </div>
+          <div class="metric">
+            <div class="m-value">By deploy</div>
+            <div class="m-label">Each event is tagged with its release, so a regression names its own build.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="related-heading">
+        <div class="section-head">
+          <h2 id="related-heading" class="section-title">Features that do the work</h2>
+        </div>
+        <div class="related">
+          <a href="/features/capture">
+            <div class="r-name">Automatic capture</div>
+            <div class="r-desc">Global handlers across requests, jobs, and cron.</div>
+          </a>
+          <a href="/features/releases">
+            <div class="r-name">Releases and environments</div>
+            <div class="r-desc">Split staging noise from a real production regression.</div>
+          </a>
+          <a href="/features/alerts">
+            <div class="r-name">Alerts and triage</div>
+            <div class="r-desc">Get paged for a new or spiking backend issue.</div>
+          </a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Get started">
+        <div class="cta-band">
+          <h2>Ship the backend with a net under you.</h2>
+          <div class="cta-actions">
+            <a class="btn primary" href="/register">Get started</a>
+            <a class="btn ghost" href="/docs">Read the docs</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    @include('SiteFooter')
+  </body>
+</html>

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Docs - bughq</title>
+    <meta name="description" content="Get bughq capturing production errors in a few minutes: install the SDK, initialize once, and read up on capture, grouping, releases, alerts, and self-hosting.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="/marketing.css">
+  </head>
+  <body>
+    @include('SiteNav')
+
+    <main>
+      <nav class="subnav shell" aria-label="Breadcrumb">
+        <a href="/">Home</a><span class="sep">/</span>
+        <span>Docs</span>
+      </nav>
+
+      <section class="feat-hero shell">
+        <span class="kicker">Docs</span>
+        <h1>From install to first grouped issue in minutes.</h1>
+        <p>bughq is one SDK and one init call. Drop it into your app, point it at your project's DSN, and every uncaught error is captured, fingerprinted, and grouped. Start here, then dive into the topic you need.</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="/register">Create a project</a>
+          <a class="btn ghost" href="https://github.com/stacksjs/bughq">View on GitHub</a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="quickstart-heading">
+        <div class="section-head">
+          <h2 id="quickstart-heading" class="section-title">Quickstart</h2>
+          <p class="section-intro">Three steps take you from an empty project to grouped issues arriving in your dashboard.</p>
+        </div>
+        <div class="flow">
+          <div class="flow-step">
+            <span class="flow-num">01</span>
+            <div>
+              <h3>Install the SDK</h3>
+              <p>Add <span class="mono">@bughq/sdk</span> to your app with your package manager of choice. It ships as a single dependency with no native build step.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">02</span>
+            <div>
+              <h3>Initialize once</h3>
+              <p>Call <span class="mono">bughq.init</span> at the top of your entry point with the DSN from your project settings, plus a release and environment.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">03</span>
+            <div>
+              <h3>Deploy and watch issues land</h3>
+              <p>From here, uncaught errors are captured on throw, grouped by fingerprint, and sorted by impact. No per-call-site wiring.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Install and initialize">
+        <div class="code" style="max-width: 700px">
+          <div class="code-bar"><span class="chart-cap">install and initialize</span></div>
+          <pre class="code-body"><code># install
+bun add @bughq/sdk
+
+# initialize once, at your entry point
+import { bughq } from '@bughq/sdk'
+
+bughq.init({
+  dsn: 'https://ingest.bughq.org/p_9f2c',
+  release: 'checkout@2.14.0',
+  environment: 'production',
+})</code></pre>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="topics-heading">
+        <div class="section-head">
+          <h2 id="topics-heading" class="section-title">Read up by topic</h2>
+        </div>
+        <div class="bento">
+          <a class="cell" href="/features/capture">
+            <h3>Capturing errors</h3>
+            <p>How the global handler collects uncaught exceptions and unhandled rejections across every runtime.</p>
+            <span class="cell-more">Read more</span>
+          </a>
+          <a class="cell tint" href="/features/stack-traces">
+            <h3>Source maps and traces</h3>
+            <p>Upload a source map so every minified frame resolves back to your original file and line.</p>
+            <span class="cell-more">Read more</span>
+          </a>
+          <a class="cell" href="/features/grouping">
+            <h3>Grouping and fingerprints</h3>
+            <p>How identical errors fold into one issue, and how to tune the fingerprint when they should not.</p>
+            <span class="cell-more">Read more</span>
+          </a>
+          <a class="cell" href="/features/releases">
+            <h3>Releases and environments</h3>
+            <p>Tag every event with a release and environment so a regression names its own deploy.</p>
+            <span class="cell-more">Read more</span>
+          </a>
+          <a class="cell tint" href="/features/alerts">
+            <h3>Alerts and triage</h3>
+            <p>Route new and spiking issues to your channel or pager, and stay quiet for the known and handled.</p>
+            <span class="cell-more">Read more</span>
+          </a>
+          <a class="cell" href="/features/self-host">
+            <h3>Self-hosting</h3>
+            <p>Run bughq on your own Postgres so sensitive stack data never leaves your infrastructure.</p>
+            <span class="cell-more">Read more</span>
+          </a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Get started">
+        <div class="cta-band">
+          <h2>Ready to catch your first issue?</h2>
+          <div class="cta-actions">
+            <a class="btn primary" href="/register">Create a project</a>
+            <a class="btn ghost" href="/use-cases">See use cases</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    @include('SiteFooter')
+  </body>
+</html>

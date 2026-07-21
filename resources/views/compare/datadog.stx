@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>bughq vs Datadog - bughq</title>
+    <meta name="description" content="How bughq, a focused open-source error tracker you self-host, compares to Datadog’s full observability suite.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="/marketing.css">
+    <style>
+      /* Highlight the bughq column (2nd of every 3 grid cells) so the table reads
+         at a glance. Uses the same accent-soft token as the rest of the site. */
+      .cmp-hl .cmp-cell:nth-child(3n+2) { background: var(--accent-soft); }
+      .cmp-note { margin-top: 1rem; color: var(--text-3); font-size: 0.86rem; line-height: 1.55; max-width: 68ch; }
+    </style>
+  </head>
+  <body>
+    @include('SiteNav')
+
+    <main>
+      <nav class="subnav shell" aria-label="Breadcrumb">
+        <a href="/">Home</a><span class="sep">/</span>
+        <a href="/compare">Compare</a><span class="sep">/</span>
+        <span>Datadog</span>
+      </nav>
+
+      <section class="feat-hero shell">
+        <span class="kicker">Compare</span>
+        <h1>bughq vs Datadog</h1>
+        <p>Datadog is an everything platform: infrastructure metrics, logs, APM, real-user monitoring, and Error Tracking as one module inside it. If you already live in Datadog, its error tracking is right there next to everything else. If errors are most of what you need, that breadth is a lot of platform and cost to carry. bughq is focused error tracking you can self-host for a fraction of the surface area.</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="/register">Get started</a>
+          <a class="btn ghost" href="/compare">All alternatives</a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="table-heading">
+        <div class="section-head">
+          <h2 id="table-heading" class="section-title">bughq and Datadog, side by side</h2>
+        </div>
+        <div class="cmp cmp-hl">
+        <div class="cmp-cell">Capability</div>
+        <div class="cmp-cell">bughq</div>
+        <div class="cmp-cell">Datadog</div>
+        <div class="cmp-cell cmp-dim">What it is</div>
+        <div class="cmp-cell cmp-ghost">Focused error and crash tracking</div>
+        <div class="cmp-cell">Full observability and APM suite</div>
+        <div class="cmp-cell cmp-dim">Open source</div>
+        <div class="cmp-cell cmp-ghost">Yes, open source</div>
+        <div class="cmp-cell">No</div>
+        <div class="cmp-cell cmp-dim">Self-host / data ownership</div>
+        <div class="cmp-cell cmp-ghost">Yes, your own Postgres</div>
+        <div class="cmp-cell">No, SaaS only</div>
+        <div class="cmp-cell cmp-dim">Pricing model</div>
+        <div class="cmp-cell cmp-ghost">Free self-hosted, usage-based hosted</div>
+        <div class="cmp-cell">Host and usage based, premium</div>
+        <div class="cmp-cell cmp-dim">Error grouping</div>
+        <div class="cmp-cell cmp-ghost">Automatic fingerprinting</div>
+        <div class="cmp-cell">Yes, within Error Tracking</div>
+        <div class="cmp-cell cmp-dim">Source maps and stack traces</div>
+        <div class="cmp-cell cmp-ghost">Full source-mapped traces</div>
+        <div class="cmp-cell">Yes</div>
+        <div class="cmp-cell cmp-dim">Releases and environments</div>
+        <div class="cmp-cell cmp-ghost">Built in</div>
+        <div class="cmp-cell">Yes</div>
+        <div class="cmp-cell cmp-dim">Alerting</div>
+        <div class="cmp-cell cmp-ghost">New and spiking issues</div>
+        <div class="cmp-cell">Yes, extensive</div>
+        <div class="cmp-cell cmp-dim">Data retention</div>
+        <div class="cmp-cell cmp-ghost">Yours to set when self-hosted</div>
+        <div class="cmp-cell">Plan and usage based</div>
+        </div>
+        <p class="cmp-note">Where Datadog still leads: it correlates errors with infrastructure, logs, traces, and RUM in one place. For full-stack observability across a large fleet, nothing here matches its reach.</p>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="why-heading">
+        <div class="section-head">
+          <h2 id="why-heading" class="section-title">Why teams pick bughq</h2>
+        </div>
+        <div class="flow">
+          <div class="flow-step">
+            <span class="flow-num">01</span>
+            <div>
+              <h3>Own your data</h3>
+              <p>Datadog is SaaS only, billed by hosts and usage. bughq self-hosts on your own Postgres, with retention you control.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">02</span>
+            <div>
+              <h3>Just error tracking</h3>
+              <p>If you need errors, not the whole observability platform, bughq is a far smaller thing to run and pay for.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">03</span>
+            <div>
+              <h3>Open source</h3>
+              <p>bughq is open and self-hostable, so there is no per-host meter on where your error data lives.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Fair comparison">
+        <div class="chips">
+          <div class="chip">
+            <h3>Credit where it is due</h3>
+            <p>Datadog’s reach is the point: errors sit next to logs, traces, and infra in one pane. bughq is not trying to replace that. It replaces the error-tracking slice for teams that want it focused, open, and self-hosted.</p>
+          </div>
+          <div class="chip">
+            <h3>What bughq is</h3>
+            <p>Open-source error and crash tracking you can run on your own Postgres, or use on a hosted tier. Automatic capture, fingerprint grouping, source-mapped traces, releases, and alerts, without the rest of an observability suite.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="related-heading">
+        <div class="section-head">
+          <h2 id="related-heading" class="section-title">More comparisons</h2>
+        </div>
+        <div class="related">
+          <a href="/compare/sentry">
+            <div class="r-name">bughq vs Sentry</div>
+            <div class="r-desc">The incumbent error platform, compared.</div>
+          </a>
+          <a href="/compare/raygun">
+            <div class="r-name">bughq vs Raygun</div>
+            <div class="r-desc">Crash reporting bundled with APM.</div>
+          </a>
+          <a href="/compare/glitchtip">
+            <div class="r-name">bughq vs GlitchTip</div>
+            <div class="r-desc">The other open-source option.</div>
+          </a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Get started">
+        <div class="cta-band">
+          <h2>Own your error tracking.</h2>
+          <div class="cta-actions">
+            <a class="btn primary" href="/register">Get started</a>
+            <a class="btn ghost" href="/features/self-host">Read about self-hosting</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    @include('SiteFooter')
+  </body>
+</html>

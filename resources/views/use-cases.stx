@@ -3,41 +3,15 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Use cases - bughq</title>
+    <meta name="description" content="How frontend, backend, mobile, on-call, and agency teams put bughq error tracking to work in production.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
     <link rel="stylesheet" href="/marketing.css">
   </head>
   <body>
-    <nav class="nav">
-      <div class="nav-inner shell">
-        <a class="brand" href="/" aria-label="bughq home">
-          <span class="brand-mark">b</span>
-          <span class="brand-name">bughq</span>
-        </a>
-        <div class="nav-links" aria-label="Primary navigation">
-          <a href="/#features">Features</a>
-          <a href="/use-cases">Use cases</a>
-          <a href="/pricing">Pricing</a>
-          <a href="/docs">Docs</a>
-          <a href="https://github.com/stacksjs/bughq">GitHub</a>
-        </div>
-        <a class="nav-login" href="/login">Log in</a>
-        <a class="btn primary sm nav-cta" href="/register">Sign up</a>
-        <details class="nav-menu">
-          <summary aria-label="Open menu"><span class="burger" aria-hidden="true"></span></summary>
-          <div class="nav-menu-panel">
-            <a href="/#features">Features</a>
-            <a href="/use-cases">Use cases</a>
-            <a href="/pricing">Pricing</a>
-            <a href="/docs">Docs</a>
-            <a href="https://github.com/stacksjs/bughq">GitHub</a>
-            <a href="/login">Log in</a>
-            <a class="btn primary sm" href="/register">Sign up</a>
-          </div>
-        </details>
-      </div>
-    </nav>
+    @include('SiteNav')
 
     <main>
       <nav class="subnav shell" aria-label="Breadcrumb">
@@ -48,7 +22,7 @@
       <section class="feat-hero shell">
         <span class="kicker">Use cases</span>
         <h1>A net under every team that ships to production.</h1>
-        <p>The same SDK and the same triage fit a solo side project or an on-call platform team. Here is how different teams lean on bughq, and which features do the work.</p>
+        <p>The same SDK and the same triage fit a browser bundle, a background worker, or a native app. Here is how different teams lean on bughq, and which features do the work.</p>
         <div class="hero-actions">
           <a class="btn primary" href="/register">Get started</a>
           <a class="btn ghost" href="/docs">Read the docs</a>
@@ -59,56 +33,47 @@
         <div class="usecases">
 
           <article class="usecase">
-            <img src="https://picsum.photos/seed/bughq-saas-eng-team/720/340" alt="An engineering team reviewing production issues" width="720" height="340" loading="lazy">
+            <img src="https://picsum.photos/seed/bughq-frontend-browser/720/340" alt="A web application open in a browser" width="720" height="340" loading="lazy">
             <div class="usecase-body">
-              <h3>SaaS engineering teams</h3>
-              <p>Catch a regression the minute a deploy ships, tied to the exact release that caused it, and fix it before the first support ticket lands.</p>
-              <a class="textlink" href="/features/releases">Releases and environments</a>
+              <h3>Frontend</h3>
+              <p>Catch the errors your users actually hit in the browser. Upload a source map and every minified frame resolves back to the component and line that threw.</p>
+              <a class="textlink" href="/use-cases/frontend">How teams use bughq for frontend</a>
             </div>
           </article>
 
           <article class="usecase">
-            <img src="https://picsum.photos/seed/bughq-oncall-platform/720/340" alt="An on-call engineer triaging alerts" width="720" height="340" loading="lazy">
+            <img src="https://picsum.photos/seed/bughq-backend-api/720/340" alt="Server and API infrastructure" width="720" height="340" loading="lazy">
             <div class="usecase-body">
-              <h3>On-call and platform teams</h3>
-              <p>Alerts that fire for new issues and real spikes, not for every known warning. Triage by release and affected-user count instead of scrolling a raw log.</p>
-              <a class="textlink" href="/features/alerts">Alerts and triage</a>
+              <h3>Backend</h3>
+              <p>Server, edge, and job failures arrive with the request, release, and environment attached, so a 500 names the route and the deploy that broke it.</p>
+              <a class="textlink" href="/use-cases/backend">How teams use bughq for backend</a>
             </div>
           </article>
 
           <article class="usecase">
-            <img src="https://picsum.photos/seed/bughq-indie-hacker-desk/720/340" alt="A solo developer at a laptop" width="720" height="340" loading="lazy">
+            <img src="https://picsum.photos/seed/bughq-mobile-app/720/340" alt="A mobile app on a phone" width="720" height="340" loading="lazy">
             <div class="usecase-body">
-              <h3>Solo devs and indie hackers</h3>
-              <p>A real safety net without an enterprise contract. One init call, grouped issues instead of a noisy inbox, and a free tier that fits a side project.</p>
-              <a class="textlink" href="/features/capture">Automatic capture</a>
+              <h3>Mobile</h3>
+              <p>Native crashes and JavaScript errors fold into one issue per build, so you see which release regressed and how many devices it reached.</p>
+              <a class="textlink" href="/use-cases/mobile">How teams use bughq for mobile</a>
             </div>
           </article>
 
           <article class="usecase">
-            <img src="https://picsum.photos/seed/bughq-agency-projects/720/340" alt="Multiple client projects on a board" width="720" height="340" loading="lazy">
+            <img src="https://picsum.photos/seed/bughq-oncall-sre/720/340" alt="An on-call engineer reviewing alerts" width="720" height="340" loading="lazy">
             <div class="usecase-body">
-              <h3>Agencies and client work</h3>
-              <p>Keep each client site as its own project with its own issues and releases, so you know exactly which build on which site started erroring.</p>
-              <a class="textlink" href="/features/grouping">Fingerprint grouping</a>
+              <h3>On-call and SRE</h3>
+              <p>Alerts fire for new and spiking issues, not for every known warning. Triage by release and affected-user count instead of scrolling a raw log.</p>
+              <a class="textlink" href="/use-cases/on-call">How on-call teams use bughq</a>
             </div>
           </article>
 
           <article class="usecase">
-            <img src="https://picsum.photos/seed/bughq-open-source-maintainer/720/340" alt="An open-source maintainer reviewing code" width="720" height="340" loading="lazy">
+            <img src="https://picsum.photos/seed/bughq-agency-clients/720/340" alt="Multiple client projects on a board" width="720" height="340" loading="lazy">
             <div class="usecase-body">
-              <h3>Open-source maintainers</h3>
-              <p>Self-host on your own Postgres and keep contributor and user data on infrastructure you control. The whole application is open source and auditable.</p>
-              <a class="textlink" href="/features/self-host">Self-hosting</a>
-            </div>
-          </article>
-
-          <article class="usecase">
-            <img src="https://picsum.photos/seed/bughq-privacy-sensitive-app/720/340" alt="A secure application dashboard" width="720" height="340" loading="lazy">
-            <div class="usecase-body">
-              <h3>Privacy-sensitive apps</h3>
-              <p>Stack traces can carry sensitive data. Run bughq inside your own boundary so that data never reaches a third party, with readable traces still intact.</p>
-              <a class="textlink" href="/features/stack-traces">Readable stack traces</a>
+              <h3>Agencies</h3>
+              <p>Keep each client site as its own project with its own issues, releases, and members, so you know exactly which build on which site started erroring.</p>
+              <a class="textlink" href="/use-cases/agencies">How agencies use bughq</a>
             </div>
           </article>
 
@@ -126,14 +91,6 @@
       </section>
     </main>
 
-    <footer class="footer shell">
-      <div class="footer-bottom" style="border-top: none">
-        <a class="brand" href="/" aria-label="bughq home">
-          <span class="brand-mark">b</span>
-          <span class="brand-name">bughq</span>
-        </a>
-        <span>Open source error tracking, built on Stacks and Postgres.</span>
-      </div>
-    </footer>
+    @include('SiteFooter')
   </body>
 </html>

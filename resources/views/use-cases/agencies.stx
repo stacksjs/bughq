@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Error tracking for agencies - bughq</title>
+    <meta name="description" content="Keep every client site as its own project with isolated issues, releases, and members, and self-host so client data stays on infrastructure you control.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="/marketing.css">
+  </head>
+  <body>
+    @include('SiteNav')
+
+    <main>
+      <nav class="subnav shell" aria-label="Breadcrumb">
+        <a href="/">Home</a><span class="sep">/</span>
+        <a href="/use-cases">Use cases</a><span class="sep">/</span>
+        <span>Agencies</span>
+      </nav>
+
+      <section class="feat-hero shell">
+        <span class="kicker">Agencies</span>
+        <h1>One project per client, one place to watch them all.</h1>
+        <p>You maintain a dozen sites on a dozen stacks. bughq keeps each client as its own isolated project with its own issues, releases, and members, so you always know which build on which site started erroring.</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="/register">Get started</a>
+          <a class="btn ghost" href="/features/self-host">Self-hosting</a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="scenarios-heading">
+        <div class="section-head">
+          <h2 id="scenarios-heading" class="section-title">Built for client work</h2>
+        </div>
+        <div class="chips">
+          <div class="chip">
+            <h3>Isolated projects</h3>
+            <p>Each client site is its own project. Issues, releases, and quotas never bleed between one account and the next.</p>
+          </div>
+          <div class="chip">
+            <h3>Scoped access</h3>
+            <p>Add a client stakeholder to a single project, or keep a site internal to your team. Access ends at the project boundary.</p>
+          </div>
+          <div class="chip">
+            <h3>Per-site releases</h3>
+            <p>A deploy on one site tags only that project, so a regression points at the exact build on the exact client.</p>
+          </div>
+          <div class="chip">
+            <h3>Handover-ready</h3>
+            <p>When a project ships to the client, the issue history and configuration go with it. Nothing is trapped in a shared inbox.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="What you get">
+        <div class="metrics">
+          <div class="metric">
+            <div class="m-value">Per client</div>
+            <div class="m-label">A separate project for every site, with its own issues and releases.</div>
+          </div>
+          <div class="metric">
+            <div class="m-value">Your servers</div>
+            <div class="m-label">Self-host on your own Postgres so client stack data stays with you.</div>
+          </div>
+          <div class="metric">
+            <div class="m-value">Clean billing</div>
+            <div class="m-label">Usage is per project, so a noisy site never surprises a quiet one.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="related-heading">
+        <div class="section-head">
+          <h2 id="related-heading" class="section-title">Features that do the work</h2>
+        </div>
+        <div class="related">
+          <a href="/features/self-host">
+            <div class="r-name">Self-hosting</div>
+            <div class="r-desc">Keep every client's stack data inside your own boundary.</div>
+          </a>
+          <a href="/features/grouping">
+            <div class="r-name">Fingerprint grouping</div>
+            <div class="r-desc">One issue per bug, isolated to the client it belongs to.</div>
+          </a>
+          <a href="/features/releases">
+            <div class="r-name">Releases and environments</div>
+            <div class="r-desc">Name the exact build on the exact site that regressed.</div>
+          </a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Get started">
+        <div class="cta-band">
+          <h2>Give every client site a net under it.</h2>
+          <div class="cta-actions">
+            <a class="btn primary" href="/register">Get started</a>
+            <a class="btn ghost" href="/docs">Read the docs</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    @include('SiteFooter')
+  </body>
+</html>

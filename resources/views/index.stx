@@ -12,14 +12,6 @@ bughq.init({
 // every uncaught error is captured, fingerprinted,
 // and grouped into a single issue automatically`
 
-const navLinks = [
-  { label: 'Features', url: '#features' },
-  { label: 'Use cases', url: '/use-cases' },
-  { label: 'Pricing', url: '/pricing' },
-  { label: 'Docs', url: '/docs' },
-  { label: 'GitHub', url: 'https://github.com/stacksjs/bughq' },
-]
-
 const featureCells = [
   { slug: 'capture', cls: 'cell', title: 'Automatic capture', body: 'One init call captures every uncaught error with its stack, release, and environment.' },
   { slug: 'grouping', cls: 'cell tint', title: 'Fingerprint grouping', body: 'Identical errors fold into one issue with a live count and an affected-user tally.' },
@@ -55,31 +47,7 @@ const steps = [
     </style>
   </head>
   <body>
-    <nav class="nav">
-      <div class="nav-inner shell">
-        <a class="brand" href="/" aria-label="bughq home">
-          <span class="brand-mark">b</span>
-          <span class="brand-name">bughq</span>
-        </a>
-        <div class="nav-links" aria-label="Primary navigation">
-          @foreach (navLinks as link)
-            <a href="{{ link.url }}">{{ link.label }}</a>
-          @endforeach
-        </div>
-        <a class="nav-login" data-auth-login href="/login">Log in</a>
-        <a class="btn primary sm nav-cta" data-auth-signup href="/register">Sign up</a>
-        <details class="nav-menu">
-          <summary aria-label="Open menu"><span class="burger" aria-hidden="true"></span></summary>
-          <div class="nav-menu-panel">
-            @foreach (navLinks as link)
-              <a href="{{ link.url }}">{{ link.label }}</a>
-            @endforeach
-            <a data-auth-login href="/login">Log in</a>
-            <a class="btn primary sm" data-auth-signup href="/register">Sign up</a>
-          </div>
-        </details>
-      </div>
-    </nav>
+    @include('SiteNav')
 
     <main class="shell">
 
@@ -153,15 +121,7 @@ const steps = [
 
     </main>
 
-    <footer class="footer shell">
-      <div class="footer-bottom">
-        <a class="brand" href="/" aria-label="bughq home">
-          <span class="brand-mark">b</span>
-          <span class="brand-name">bughq</span>
-        </a>
-        <span>Open source error tracking, built on Stacks and Postgres.</span>
-      </div>
-    </footer>
+    @include('SiteFooter')
 
     <!-- Reflect auth state: a logged-in visitor (token in localStorage) sees
          "Dashboard" instead of Log in / Sign up. -->

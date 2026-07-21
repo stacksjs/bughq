@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>bughq vs Sentry - bughq</title>
+    <meta name="description" content="How bughq, an open-source error tracker you self-host on Postgres, compares to Sentry, the incumbent error platform.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="/marketing.css">
+    <style>
+      /* Highlight the bughq column (2nd of every 3 grid cells) so the table reads
+         at a glance. Uses the same accent-soft token as the rest of the site. */
+      .cmp-hl .cmp-cell:nth-child(3n+2) { background: var(--accent-soft); }
+      .cmp-note { margin-top: 1rem; color: var(--text-3); font-size: 0.86rem; line-height: 1.55; max-width: 68ch; }
+    </style>
+  </head>
+  <body>
+    @include('SiteNav')
+
+    <main>
+      <nav class="subnav shell" aria-label="Breadcrumb">
+        <a href="/">Home</a><span class="sep">/</span>
+        <a href="/compare">Compare</a><span class="sep">/</span>
+        <span>Sentry</span>
+      </nav>
+
+      <section class="feat-hero shell">
+        <span class="kicker">Compare</span>
+        <h1>bughq vs Sentry</h1>
+        <p>Sentry is the incumbent and the most feature-complete option here, spanning error tracking, tracing, session replay, and profiling. That breadth is real. It also comes with event-quota pricing that climbs quickly at scale and a self-hosted stack of many moving parts. bughq does one thing, error and crash tracking, and self-hosts as a single app on your own Postgres.</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="/register">Get started</a>
+          <a class="btn ghost" href="/compare">All alternatives</a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="table-heading">
+        <div class="section-head">
+          <h2 id="table-heading" class="section-title">bughq and Sentry, side by side</h2>
+        </div>
+        <div class="cmp cmp-hl">
+        <div class="cmp-cell">Capability</div>
+        <div class="cmp-cell">bughq</div>
+        <div class="cmp-cell">Sentry</div>
+        <div class="cmp-cell cmp-dim">What it is</div>
+        <div class="cmp-cell cmp-ghost">Focused error and crash tracking</div>
+        <div class="cmp-cell">Errors, tracing, replay, profiling</div>
+        <div class="cmp-cell cmp-dim">Open source</div>
+        <div class="cmp-cell cmp-ghost">Yes, open source</div>
+        <div class="cmp-cell">Source-available (BSL)</div>
+        <div class="cmp-cell cmp-dim">Self-host / data ownership</div>
+        <div class="cmp-cell cmp-ghost">Yes, your own Postgres</div>
+        <div class="cmp-cell">Yes, multi-service stack</div>
+        <div class="cmp-cell cmp-dim">Pricing model</div>
+        <div class="cmp-cell cmp-ghost">Free self-hosted, usage-based hosted</div>
+        <div class="cmp-cell">Event-quota, scales up fast</div>
+        <div class="cmp-cell cmp-dim">Error grouping</div>
+        <div class="cmp-cell cmp-ghost">Automatic fingerprinting</div>
+        <div class="cmp-cell">Yes</div>
+        <div class="cmp-cell cmp-dim">Source maps and stack traces</div>
+        <div class="cmp-cell cmp-ghost">Full source-mapped traces</div>
+        <div class="cmp-cell">Yes</div>
+        <div class="cmp-cell cmp-dim">Releases and environments</div>
+        <div class="cmp-cell cmp-ghost">Built in</div>
+        <div class="cmp-cell">Yes</div>
+        <div class="cmp-cell cmp-dim">Alerting</div>
+        <div class="cmp-cell cmp-ghost">New and spiking issues</div>
+        <div class="cmp-cell">Yes, extensive</div>
+        <div class="cmp-cell cmp-dim">Data retention</div>
+        <div class="cmp-cell cmp-ghost">Yours to set when self-hosted</div>
+        <div class="cmp-cell">Plan-based (30 to 90 days)</div>
+        </div>
+        <p class="cmp-note">Where Sentry still leads: distributed tracing, session replay, and profiling in one product. If you need a full performance suite, not just errors, Sentry covers more ground.</p>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="why-heading">
+        <div class="section-head">
+          <h2 id="why-heading" class="section-title">Why teams pick bughq</h2>
+        </div>
+        <div class="flow">
+          <div class="flow-step">
+            <span class="flow-num">01</span>
+            <div>
+              <h3>Own your data</h3>
+              <p>Self-hosting bughq is one app plus Postgres, not Kafka, ClickHouse, and a fleet of workers. Sensitive stack data stays on your infrastructure without an ops project to keep it there.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">02</span>
+            <div>
+              <h3>Predictable cost</h3>
+              <p>A noisy release can burn through a Sentry event quota in an afternoon. bughq keeps error tracking affordable, and free entirely when you run it yourself.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">03</span>
+            <div>
+              <h3>Just error tracking</h3>
+              <p>If you do not need tracing and replay, the incumbent is a lot of surface area to carry. bughq stays focused on capture, grouping, source maps, and triage.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Fair comparison">
+        <div class="chips">
+          <div class="chip">
+            <h3>Credit where it is due</h3>
+            <p>Sentry pioneered much of how modern error tracking works, and its SDK coverage is enormous. bughq is the leaner, self-contained take on the same core loop, not a clone of the whole platform.</p>
+          </div>
+          <div class="chip">
+            <h3>What bughq is</h3>
+            <p>Open-source error and crash tracking you can run on your own Postgres, or use on a hosted tier. Automatic capture, fingerprint grouping, source-mapped traces, releases, and alerts, without the rest of an observability suite.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="related-heading">
+        <div class="section-head">
+          <h2 id="related-heading" class="section-title">More comparisons</h2>
+        </div>
+        <div class="related">
+          <a href="/compare/glitchtip">
+            <div class="r-name">bughq vs GlitchTip</div>
+            <div class="r-desc">The other open-source, Sentry-adjacent option.</div>
+          </a>
+          <a href="/compare/datadog">
+            <div class="r-name">bughq vs Datadog</div>
+            <div class="r-desc">Focused errors versus a full observability suite.</div>
+          </a>
+          <a href="/compare/bugsnag">
+            <div class="r-name">bughq vs Bugsnag</div>
+            <div class="r-desc">Open and self-hosted versus closed stability monitoring.</div>
+          </a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Get started">
+        <div class="cta-band">
+          <h2>Own your error tracking.</h2>
+          <div class="cta-actions">
+            <a class="btn primary" href="/register">Get started</a>
+            <a class="btn ghost" href="/features/self-host">Read about self-hosting</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    @include('SiteFooter')
+  </body>
+</html>

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>bughq vs GlitchTip - bughq</title>
+    <meta name="description" content="How bughq compares to GlitchTip, the other open-source, Sentry-compatible error tracker you can self-host.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="/marketing.css">
+    <style>
+      /* Highlight the bughq column (2nd of every 3 grid cells) so the table reads
+         at a glance. Uses the same accent-soft token as the rest of the site. */
+      .cmp-hl .cmp-cell:nth-child(3n+2) { background: var(--accent-soft); }
+      .cmp-note { margin-top: 1rem; color: var(--text-3); font-size: 0.86rem; line-height: 1.55; max-width: 68ch; }
+    </style>
+  </head>
+  <body>
+    @include('SiteNav')
+
+    <main>
+      <nav class="subnav shell" aria-label="Breadcrumb">
+        <a href="/">Home</a><span class="sep">/</span>
+        <a href="/compare">Compare</a><span class="sep">/</span>
+        <span>GlitchTip</span>
+      </nav>
+
+      <section class="feat-hero shell">
+        <span class="kicker">Compare</span>
+        <h1>bughq vs GlitchTip</h1>
+        <p>GlitchTip is the other open-source name here, and a genuinely good one. It reimplements a Sentry-compatible API, so you can point existing Sentry SDKs straight at it, which is a real advantage if you are migrating off Sentry. bughq is a different bet: a Stacks-native, Postgres-only app with its own SDK and a tighter, more opinionated triage flow. If SDK compatibility is your priority, GlitchTip is hard to beat; if you want a self-contained app that matches this stack, bughq fits.</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="/register">Get started</a>
+          <a class="btn ghost" href="/compare">All alternatives</a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="table-heading">
+        <div class="section-head">
+          <h2 id="table-heading" class="section-title">bughq and GlitchTip, side by side</h2>
+        </div>
+        <div class="cmp cmp-hl">
+        <div class="cmp-cell">Capability</div>
+        <div class="cmp-cell">bughq</div>
+        <div class="cmp-cell">GlitchTip</div>
+        <div class="cmp-cell cmp-dim">What it is</div>
+        <div class="cmp-cell cmp-ghost">Focused error and crash tracking</div>
+        <div class="cmp-cell">Errors and uptime (Sentry-compatible)</div>
+        <div class="cmp-cell cmp-dim">Open source</div>
+        <div class="cmp-cell cmp-ghost">Yes, open source</div>
+        <div class="cmp-cell">Yes, AGPL</div>
+        <div class="cmp-cell cmp-dim">Self-host / data ownership</div>
+        <div class="cmp-cell cmp-ghost">Yes, your own Postgres</div>
+        <div class="cmp-cell">Yes, Postgres based</div>
+        <div class="cmp-cell cmp-dim">Pricing model</div>
+        <div class="cmp-cell cmp-ghost">Free self-hosted, usage-based hosted</div>
+        <div class="cmp-cell">Free self-hosted, hosted tier</div>
+        <div class="cmp-cell cmp-dim">Error grouping</div>
+        <div class="cmp-cell cmp-ghost">Automatic fingerprinting</div>
+        <div class="cmp-cell">Yes</div>
+        <div class="cmp-cell cmp-dim">Source maps and stack traces</div>
+        <div class="cmp-cell cmp-ghost">Full source-mapped traces</div>
+        <div class="cmp-cell">Yes</div>
+        <div class="cmp-cell cmp-dim">Releases and environments</div>
+        <div class="cmp-cell cmp-ghost">Built in</div>
+        <div class="cmp-cell">Yes</div>
+        <div class="cmp-cell cmp-dim">Alerting</div>
+        <div class="cmp-cell cmp-ghost">New and spiking issues</div>
+        <div class="cmp-cell">Yes</div>
+        <div class="cmp-cell cmp-dim">Data retention</div>
+        <div class="cmp-cell cmp-ghost">Yours to set when self-hosted</div>
+        <div class="cmp-cell">Yours when self-hosted</div>
+        </div>
+        <p class="cmp-note">Where GlitchTip leads: it speaks the Sentry API, so existing Sentry SDKs and DSNs work with almost no change. For a migration off Sentry, that compatibility is a strong reason to choose it.</p>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="why-heading">
+        <div class="section-head">
+          <h2 id="why-heading" class="section-title">Why teams pick bughq</h2>
+        </div>
+        <div class="flow">
+          <div class="flow-step">
+            <span class="flow-num">01</span>
+            <div>
+              <h3>Stacks-native</h3>
+              <p>bughq is built on the same stack as your app, with a single Postgres dependency and no Django runtime to operate alongside it.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">02</span>
+            <div>
+              <h3>Opinionated triage</h3>
+              <p>bughq leans into a tight new-and-spiking triage flow rather than mirroring the Sentry UI, which some teams find simpler to live in day to day.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">03</span>
+            <div>
+              <h3>One SDK, one app</h3>
+              <p>bughq ships its own SDK designed for this platform. If you are not tied to Sentry SDK compatibility, that keeps the whole path first-party.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Fair comparison">
+        <div class="chips">
+          <div class="chip">
+            <h3>Honestly, they overlap</h3>
+            <p>Both are open source and self-hostable, so this is less switch and more fit. GlitchTip wins on Sentry compatibility; bughq wins if you want a self-contained, Stacks-native app. Either keeps your data yours.</p>
+          </div>
+          <div class="chip">
+            <h3>What bughq is</h3>
+            <p>Open-source error and crash tracking you can run on your own Postgres, or use on a hosted tier. Automatic capture, fingerprint grouping, source-mapped traces, releases, and alerts, without the rest of an observability suite.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="related-heading">
+        <div class="section-head">
+          <h2 id="related-heading" class="section-title">More comparisons</h2>
+        </div>
+        <div class="related">
+          <a href="/compare/sentry">
+            <div class="r-name">bughq vs Sentry</div>
+            <div class="r-desc">The platform GlitchTip stays compatible with.</div>
+          </a>
+          <a href="/compare/datadog">
+            <div class="r-name">bughq vs Datadog</div>
+            <div class="r-desc">Open self-hosting versus a hosted suite.</div>
+          </a>
+          <a href="/compare/bugsnag">
+            <div class="r-name">bughq vs Bugsnag</div>
+            <div class="r-desc">Open versus closed stability monitoring.</div>
+          </a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Get started">
+        <div class="cta-band">
+          <h2>Own your error tracking.</h2>
+          <div class="cta-actions">
+            <a class="btn primary" href="/register">Get started</a>
+            <a class="btn ghost" href="/features/self-host">Read about self-hosting</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    @include('SiteFooter')
+  </body>
+</html>

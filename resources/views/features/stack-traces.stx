@@ -9,35 +9,7 @@
     <link rel="stylesheet" href="/marketing.css">
   </head>
   <body>
-    <nav class="nav">
-      <div class="nav-inner shell">
-        <a class="brand" href="/" aria-label="bughq home">
-          <span class="brand-mark">b</span>
-          <span class="brand-name">bughq</span>
-        </a>
-        <div class="nav-links" aria-label="Primary navigation">
-            <a href="/#features">Features</a>
-            <a href="/use-cases">Use cases</a>
-            <a href="/pricing">Pricing</a>
-            <a href="/docs">Docs</a>
-            <a href="https://github.com/stacksjs/bughq">GitHub</a>
-        </div>
-        <a class="nav-login" href="/login">Log in</a>
-        <a class="btn primary sm nav-cta" href="/register">Sign up</a>
-        <details class="nav-menu">
-          <summary aria-label="Open menu"><span class="burger" aria-hidden="true"></span></summary>
-          <div class="nav-menu-panel">
-            <a href="/#features">Features</a>
-            <a href="/use-cases">Use cases</a>
-            <a href="/pricing">Pricing</a>
-            <a href="/docs">Docs</a>
-            <a href="https://github.com/stacksjs/bughq">GitHub</a>
-            <a href="/login">Log in</a>
-            <a class="btn primary sm" href="/register">Sign up</a>
-          </div>
-        </details>
-      </div>
-    </nav>
+    @include('SiteNav')
 
     <main>
       <nav class="subnav shell" aria-label="Breadcrumb">
@@ -147,14 +119,6 @@ at submitOrder (src/checkout/order.ts:142:11)
       </section>
     </main>
 
-    <footer class="footer shell">
-      <div class="footer-bottom" style="border-top: none">
-        <a class="brand" href="/" aria-label="bughq home">
-          <span class="brand-mark">b</span>
-          <span class="brand-name">bughq</span>
-        </a>
-        <span>Open source error tracking, built on Stacks and Postgres.</span>
-      </div>
-    </footer>
+    @include('SiteFooter')
   </body>
 </html>

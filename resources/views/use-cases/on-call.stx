@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>On-call and SRE error tracking - bughq</title>
+    <meta name="description" content="Alert on new and spiking issues, not on known noise. Triage by release and affected-user count so on-call time goes to what is actually breaking.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="/marketing.css">
+  </head>
+  <body>
+    @include('SiteNav')
+
+    <main>
+      <nav class="subnav shell" aria-label="Breadcrumb">
+        <a href="/">Home</a><span class="sep">/</span>
+        <a href="/use-cases">Use cases</a><span class="sep">/</span>
+        <span>On-call and SRE</span>
+      </nav>
+
+      <section class="feat-hero shell">
+        <span class="kicker">On-call and SRE</span>
+        <h1>Pages that mean something, at 3am.</h1>
+        <p>An alert that fires for every known warning trains you to ignore it. bughq tells you when an issue is genuinely new or spiking, and stays quiet for the errors you have already seen and handled.</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="/register">Get started</a>
+          <a class="btn ghost" href="/features/alerts">Alerts and triage</a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Alerts by reason">
+        <div class="panel" style="max-width: 640px">
+          <div class="panel-head"><span class="chart-cap">This week, by alert reason</span><span class="panel-tag">Sample data</span></div>
+          <div class="bar-row">
+            <span class="bar-label">New issue</span>
+            <span class="bar-track"><span class="bar-fill" style="width: 62%"></span></span>
+            <span class="bar-value">14</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">Spike</span>
+            <span class="bar-track"><span class="bar-fill" style="width: 33%"></span></span>
+            <span class="bar-value">7</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">Regression</span>
+            <span class="bar-track"><span class="bar-fill" style="width: 19%"></span></span>
+            <span class="bar-value">4</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">Reopened</span>
+            <span class="bar-track"><span class="bar-fill" style="width: 9%"></span></span>
+            <span class="bar-value">2</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="how-heading">
+        <div class="section-head">
+          <h2 id="how-heading" class="section-title">How on-call teams use it</h2>
+        </div>
+        <div class="flow">
+          <div class="flow-step">
+            <span class="flow-num">01</span>
+            <div>
+              <h3>Route alerts to the channel you watch</h3>
+              <p>Send new and spiking issues to the on-call channel or pager. Known and resolved issues stay off the rotation until they come back.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">02</span>
+            <div>
+              <h3>Triage by impact, not by timestamp</h3>
+              <p>Issues sort by affected-user count and rate, so the fault hitting the most people is at the top, not buried in a scrolling log.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">03</span>
+            <div>
+              <h3>Hand off with a clear trail</h3>
+              <p>Each issue keeps its history, release, and status, so the next shift picks up exactly where the last one left off.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="What you get">
+        <div class="metrics">
+          <div class="metric">
+            <div class="m-value">Signal</div>
+            <div class="m-label">Alerts for new and spiking issues, silence for the known and handled.</div>
+          </div>
+          <div class="metric">
+            <div class="m-value">By impact</div>
+            <div class="m-label">Sort a queue by affected users and rate, not by raw event time.</div>
+          </div>
+          <div class="metric">
+            <div class="m-value">Clean handoff</div>
+            <div class="m-label">Status, history, and release travel with every issue across shifts.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="related-heading">
+        <div class="section-head">
+          <h2 id="related-heading" class="section-title">Features that do the work</h2>
+        </div>
+        <div class="related">
+          <a href="/features/alerts">
+            <div class="r-name">Alerts and triage</div>
+            <div class="r-desc">Fire for new and spiking issues, quiet for the rest.</div>
+          </a>
+          <a href="/features/grouping">
+            <div class="r-name">Fingerprint grouping</div>
+            <div class="r-desc">A queue of issues by impact, not a wall of events.</div>
+          </a>
+          <a href="/features/releases">
+            <div class="r-name">Releases and environments</div>
+            <div class="r-desc">Tell a fresh regression apart from a long-standing bug.</div>
+          </a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Get started">
+        <div class="cta-band">
+          <h2>Give on-call a net under it.</h2>
+          <div class="cta-actions">
+            <a class="btn primary" href="/register">Get started</a>
+            <a class="btn ghost" href="/docs">Read the docs</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    @include('SiteFooter')
+  </body>
+</html>

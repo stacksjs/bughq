@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Mobile crash reporting - bughq</title>
+    <meta name="description" content="Group native crashes and JavaScript errors by build and release, so you see which version regressed and how many devices it reached.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="/marketing.css">
+  </head>
+  <body>
+    @include('SiteNav')
+
+    <main>
+      <nav class="subnav shell" aria-label="Breadcrumb">
+        <a href="/">Home</a><span class="sep">/</span>
+        <a href="/use-cases">Use cases</a><span class="sep">/</span>
+        <span>Mobile</span>
+      </nav>
+
+      <section class="feat-hero shell">
+        <span class="kicker">Mobile</span>
+        <h1>Know which build crashed, before the review does.</h1>
+        <p>A mobile release reaches thousands of devices at once and you cannot attach a debugger to any of them. bughq collects the crash, groups it by build and release, and tells you how many users a version affected.</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="/register">Get started</a>
+          <a class="btn ghost" href="/features/releases">Releases</a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Crashes by release">
+        <div class="panel" style="max-width: 640px">
+          <div class="panel-head"><span class="chart-cap">Crash-free sessions, by release</span><span class="panel-tag">Sample data</span></div>
+          <div class="bar-row">
+            <span class="bar-label">4.3.0</span>
+            <span class="bar-track"><span class="bar-fill" style="width: 27%"></span></span>
+            <span class="bar-value">96.4%</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">4.2.1</span>
+            <span class="bar-track"><span class="bar-fill" style="width: 96%"></span></span>
+            <span class="bar-value">99.7%</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">4.2.0</span>
+            <span class="bar-track"><span class="bar-fill" style="width: 90%"></span></span>
+            <span class="bar-value">99.3%</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-label">4.1.4</span>
+            <span class="bar-track"><span class="bar-fill" style="width: 93%"></span></span>
+            <span class="bar-value">99.5%</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="how-heading">
+        <div class="section-head">
+          <h2 id="how-heading" class="section-title">How mobile teams use it</h2>
+        </div>
+        <div class="flow">
+          <div class="flow-step">
+            <span class="flow-num">01</span>
+            <div>
+              <h3>Tag the build on release</h3>
+              <p>Set the release and build number in the init call. Every crash and handled error carries the exact version that produced it.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">02</span>
+            <div>
+              <h3>Crashes group by signature</h3>
+              <p>Native and JavaScript-layer errors fold into one issue per fault, with an affected-user count instead of a raw event stream.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">03</span>
+            <div>
+              <h3>Catch a bad release early</h3>
+              <p>A crash-free-sessions drop on a new build surfaces immediately, so you can halt a staged rollout before it reaches everyone.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="What you get">
+        <div class="metrics">
+          <div class="metric">
+            <div class="m-value">Per build</div>
+            <div class="m-label">Crashes and crash-free rates are broken down by release and build number.</div>
+          </div>
+          <div class="metric">
+            <div class="m-value">User count</div>
+            <div class="m-label">Each issue shows how many devices and users it reached, not just events.</div>
+          </div>
+          <div class="metric">
+            <div class="m-value">One issue</div>
+            <div class="m-label">Native and JS-layer faults for the same bug fold into a single thread.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="related-heading">
+        <div class="section-head">
+          <h2 id="related-heading" class="section-title">Features that do the work</h2>
+        </div>
+        <div class="related">
+          <a href="/features/releases">
+            <div class="r-name">Releases and environments</div>
+            <div class="r-desc">Break crashes down by build and staged rollout.</div>
+          </a>
+          <a href="/features/grouping">
+            <div class="r-name">Fingerprint grouping</div>
+            <div class="r-desc">One issue per crash, with an affected-user tally.</div>
+          </a>
+          <a href="/features/alerts">
+            <div class="r-name">Alerts and triage</div>
+            <div class="r-desc">Get told the moment crash-free sessions drop.</div>
+          </a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Get started">
+        <div class="cta-band">
+          <h2>Ship the app with a net under you.</h2>
+          <div class="cta-actions">
+            <a class="btn primary" href="/register">Get started</a>
+            <a class="btn ghost" href="/docs">Read the docs</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    @include('SiteFooter')
+  </body>
+</html>

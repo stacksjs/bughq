@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Frontend error tracking - bughq</title>
+    <meta name="description" content="Catch the JavaScript errors your users actually hit in the browser, with source-mapped stack traces, release tagging, and one issue per bug.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="/marketing.css">
+  </head>
+  <body>
+    @include('SiteNav')
+
+    <main>
+      <nav class="subnav shell" aria-label="Breadcrumb">
+        <a href="/">Home</a><span class="sep">/</span>
+        <a href="/use-cases">Use cases</a><span class="sep">/</span>
+        <span>Frontend</span>
+      </nav>
+
+      <section class="feat-hero shell">
+        <span class="kicker">Frontend</span>
+        <h1>See the errors your users hit, in your own source.</h1>
+        <p>Browser code fails on devices you will never touch, in a minified bundle you cannot read. bughq captures the throw, resolves it back to your original file with a source map, and folds every occurrence into one issue.</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="/register">Get started</a>
+          <a class="btn ghost" href="/features/stack-traces">Stack traces</a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Frontend capture preview">
+        <div class="code" style="max-width: 700px">
+          <div class="code-bar"><span class="chart-cap">src/main.ts</span></div>
+          <pre class="code-body"><code>import { bughq } from '@bughq/sdk'
+
+bughq.init({
+  dsn: 'https://ingest.bughq.org/p_9f2c',
+  release: 'web@2.14.0',
+  environment: 'production',
+})
+
+// unhandled rejections and window.onerror are captured
+// automatically, with the user action that led up to them</code></pre>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="how-heading">
+        <div class="section-head">
+          <h2 id="how-heading" class="section-title">How frontend teams use it</h2>
+        </div>
+        <div class="flow">
+          <div class="flow-step">
+            <span class="flow-num">01</span>
+            <div>
+              <h3>Ship the source map with the build</h3>
+              <p>Your bundler already emits a source map. Upload it on deploy and every frame in every trace points back to the real file, function, and line.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">02</span>
+            <div>
+              <h3>Errors group across browsers and devices</h3>
+              <p>The same TypeError from Chrome, Safari, and an in-app webview folds into one issue with a device and browser breakdown, not six near-duplicates.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">03</span>
+            <div>
+              <h3>A regression names its release</h3>
+              <p>Each event carries the release it came from, so a spike after a deploy points straight at the build that introduced it.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="What you get">
+        <div class="metrics">
+          <div class="metric">
+            <div class="m-value">Your source</div>
+            <div class="m-label">Source maps turn minified frames back into the code you wrote.</div>
+          </div>
+          <div class="metric">
+            <div class="m-value">SPA-aware</div>
+            <div class="m-label">History navigations, async rejections, and event handlers are all captured.</div>
+          </div>
+          <div class="metric">
+            <div class="m-value">Per device</div>
+            <div class="m-label">Every issue breaks down by browser, OS, and release automatically.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="related-heading">
+        <div class="section-head">
+          <h2 id="related-heading" class="section-title">Features that do the work</h2>
+        </div>
+        <div class="related">
+          <a href="/features/stack-traces">
+            <div class="r-name">Readable stack traces</div>
+            <div class="r-desc">Turn minified browser frames back into your source.</div>
+          </a>
+          <a href="/features/grouping">
+            <div class="r-name">Fingerprint grouping</div>
+            <div class="r-desc">One issue per bug, across every browser and device.</div>
+          </a>
+          <a href="/features/releases">
+            <div class="r-name">Releases and environments</div>
+            <div class="r-desc">Tie a browser spike to the build that caused it.</div>
+          </a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Get started">
+        <div class="cta-band">
+          <h2>Ship the frontend with a net under you.</h2>
+          <div class="cta-actions">
+            <a class="btn primary" href="/register">Get started</a>
+            <a class="btn ghost" href="/docs">Read the docs</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    @include('SiteFooter')
+  </body>
+</html>

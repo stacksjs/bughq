@@ -1,0 +1,124 @@
+<!-- Shared marketing nav, included on every marketing page via the stx include
+     directive with the name SiteNav. One source of truth for the top nav, with
+     two CSS-only mega-menu dropdowns (Features, Use cases). No JS: panels reveal
+     on hover and on keyboard focus via :focus-within. The .mega styles live in
+     the style block below (public/marketing.css is out of scope for this change)
+     and reuse bughq's existing design tokens so the nav matches the whole site. -->
+<nav class="nav">
+  <div class="nav-inner shell">
+    <a class="brand" href="/" aria-label="bughq home">
+      <span class="brand-mark">b</span>
+      <span class="brand-name">bughq</span>
+    </a>
+
+    <div class="nav-links" aria-label="Primary navigation">
+      <div class="mega">
+        <a class="mega-trigger" href="/#features" aria-haspopup="true">Features</a>
+        <div class="mega-panel" role="menu" aria-label="Features">
+          <a role="menuitem" href="/features/capture"><span class="mega-t">Automatic capture</span><span class="mega-d">One init call captures every uncaught error with full context.</span></a>
+          <a role="menuitem" href="/features/stack-traces"><span class="mega-t">Readable stack traces</span><span class="mega-d">Source maps turn minified frames back into your code.</span></a>
+          <a role="menuitem" href="/features/grouping"><span class="mega-t">Fingerprint grouping</span><span class="mega-d">Identical errors fold into one issue with a live count.</span></a>
+          <a role="menuitem" href="/features/alerts"><span class="mega-t">Alerts and triage</span><span class="mega-d">Told when an issue is new or spiking, quiet for the rest.</span></a>
+          <a role="menuitem" href="/features/releases"><span class="mega-t">Releases and environments</span><span class="mega-d">Tag every event so a regression names its own deploy.</span></a>
+          <a role="menuitem" href="/features/self-host"><span class="mega-t">Self-hosting</span><span class="mega-d">Open source, on your own Postgres. Data stays with you.</span></a>
+        </div>
+      </div>
+
+      <div class="mega">
+        <a class="mega-trigger" href="/use-cases" aria-haspopup="true">Use cases</a>
+        <div class="mega-panel" role="menu" aria-label="Use cases">
+          <a role="menuitem" href="/use-cases"><span class="mega-t">All use cases</span><span class="mega-d">How different teams put bughq to work in production.</span></a>
+          <a role="menuitem" href="/use-cases/frontend"><span class="mega-t">Frontend</span><span class="mega-d">Catch browser errors with source-mapped traces.</span></a>
+          <a role="menuitem" href="/use-cases/backend"><span class="mega-t">Backend</span><span class="mega-d">Server, edge, and job errors tied to the request.</span></a>
+          <a role="menuitem" href="/use-cases/mobile"><span class="mega-t">Mobile</span><span class="mega-d">Native crashes grouped by build and release.</span></a>
+          <a role="menuitem" href="/use-cases/on-call"><span class="mega-t">On-call and SRE</span><span class="mega-d">Alert on new and spiking issues, not known noise.</span></a>
+          <a role="menuitem" href="/use-cases/agencies"><span class="mega-t">Agencies</span><span class="mega-d">Every client site as its own isolated project.</span></a>
+        </div>
+      </div>
+
+      <a href="/pricing">Pricing</a>
+      <a href="/docs">Docs</a>
+      <a href="https://github.com/stacksjs/bughq">GitHub</a>
+    </div>
+
+    <a class="nav-login" data-auth-login href="/login">Log in</a>
+    <a class="btn primary sm nav-cta" data-auth-signup href="/register">Sign up</a>
+
+    <details class="nav-menu">
+      <summary aria-label="Open menu"><span class="burger" aria-hidden="true"></span></summary>
+      <div class="nav-menu-panel">
+        <span class="nav-menu-group">Features</span>
+        <a href="/features/capture">Automatic capture</a>
+        <a href="/features/stack-traces">Readable stack traces</a>
+        <a href="/features/grouping">Fingerprint grouping</a>
+        <a href="/features/alerts">Alerts and triage</a>
+        <a href="/features/releases">Releases and environments</a>
+        <a href="/features/self-host">Self-hosting</a>
+
+        <span class="nav-menu-group">Use cases</span>
+        <a href="/use-cases">All use cases</a>
+        <a href="/use-cases/frontend">Frontend</a>
+        <a href="/use-cases/backend">Backend</a>
+        <a href="/use-cases/mobile">Mobile</a>
+        <a href="/use-cases/on-call">On-call and SRE</a>
+        <a href="/use-cases/agencies">Agencies</a>
+
+        <span class="nav-menu-group">More</span>
+        <a href="/pricing">Pricing</a>
+        <a href="/docs">Docs</a>
+        <a href="https://github.com/stacksjs/bughq">GitHub</a>
+        <a data-auth-login href="/login">Log in</a>
+        <a class="btn primary sm" data-auth-signup href="/register">Sign up</a>
+      </div>
+    </details>
+  </div>
+</nav>
+
+<style>
+  /* CSS-only mega menu. Reveal on hover + keyboard focus (:focus-within).
+     Tokens are the same variables the rest of marketing.css uses. */
+  .mega { position: relative; display: inline-flex; align-items: center; }
+  .mega-trigger { display: inline-flex; align-items: center; gap: 0.32rem; cursor: pointer; }
+  .mega-trigger::after {
+    content: "\25BE"; font-size: 0.62em; line-height: 1; color: var(--text-3);
+    transition: transform 0.18s ease, color 0.18s ease;
+  }
+  .mega:hover .mega-trigger, .mega:focus-within .mega-trigger { color: var(--text); }
+  .mega:hover .mega-trigger::after, .mega:focus-within .mega-trigger::after { transform: rotate(180deg); color: var(--accent); }
+
+  .mega-panel {
+    position: absolute; top: 100%; left: 50%; z-index: 50;
+    margin-top: 14px;
+    display: grid; grid-template-columns: repeat(2, minmax(216px, 1fr)); gap: 0.12rem;
+    min-width: 484px; padding: 0.55rem;
+    background: var(--surface); border: 1px solid var(--border-strong); border-radius: var(--r);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
+    opacity: 0; visibility: hidden; pointer-events: none;
+    transform: translateX(-50%) translateY(6px);
+    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+  }
+  /* invisible hover bridge so the pointer can cross the 14px gap */
+  .mega-panel::before { content: ""; position: absolute; top: -14px; left: 0; right: 0; height: 14px; }
+  .mega:hover .mega-panel, .mega:focus-within .mega-panel {
+    opacity: 1; visibility: visible; pointer-events: auto;
+    transform: translateX(-50%) translateY(0);
+  }
+  .mega-panel a { display: flex; flex-direction: column; gap: 0.2rem; padding: 0.62rem 0.72rem; border-radius: var(--r-sm); }
+  .mega-panel a:hover { background: var(--surface-2); }
+  .mega-t { color: var(--text); font-size: 0.9rem; font-weight: 600; letter-spacing: -0.01em; }
+  .mega-d { color: var(--text-3); font-size: 0.8rem; line-height: 1.4; }
+
+  .nav-menu-group {
+    padding: 0.55rem 0.7rem 0.2rem; font-family: var(--mono); font-size: 0.68rem;
+    letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-3);
+  }
+  .nav-menu-group:not(:first-child) { margin-top: 0.35rem; border-top: 1px solid var(--border); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .mega-trigger::after, .mega-panel { transition: none; }
+  }
+  @media (max-width: 900px) {
+    /* desktop mega hidden with .nav-links; the <details> menu takes over */
+    .mega-panel { display: none; }
+  }
+</style>

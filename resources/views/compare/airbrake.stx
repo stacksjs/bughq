@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>bughq vs Airbrake - bughq</title>
+    <meta name="description" content="How bughq, an open-source error tracker you self-host on Postgres, compares to Airbrake, one of the original error trackers.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="/marketing.css">
+    <style>
+      /* Highlight the bughq column (2nd of every 3 grid cells) so the table reads
+         at a glance. Uses the same accent-soft token as the rest of the site. */
+      .cmp-hl .cmp-cell:nth-child(3n+2) { background: var(--accent-soft); }
+      .cmp-note { margin-top: 1rem; color: var(--text-3); font-size: 0.86rem; line-height: 1.55; max-width: 68ch; }
+    </style>
+  </head>
+  <body>
+    @include('SiteNav')
+
+    <main>
+      <nav class="subnav shell" aria-label="Breadcrumb">
+        <a href="/">Home</a><span class="sep">/</span>
+        <a href="/compare">Compare</a><span class="sep">/</span>
+        <span>Airbrake</span>
+      </nav>
+
+      <section class="feat-hero shell">
+        <span class="kicker">Compare</span>
+        <h1>bughq vs Airbrake</h1>
+        <p>Airbrake is one of the original error trackers, now a closed-source SaaS with error monitoring and light performance features. The capture-and-triage loop it made familiar is exactly what bughq provides, as an open project you can run on your own Postgres instead of a hosted-only account.</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="/register">Get started</a>
+          <a class="btn ghost" href="/compare">All alternatives</a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="table-heading">
+        <div class="section-head">
+          <h2 id="table-heading" class="section-title">bughq and Airbrake, side by side</h2>
+        </div>
+        <div class="cmp cmp-hl">
+        <div class="cmp-cell">Capability</div>
+        <div class="cmp-cell">bughq</div>
+        <div class="cmp-cell">Airbrake</div>
+        <div class="cmp-cell cmp-dim">What it is</div>
+        <div class="cmp-cell cmp-ghost">Focused error and crash tracking</div>
+        <div class="cmp-cell">Error and performance monitoring</div>
+        <div class="cmp-cell cmp-dim">Open source</div>
+        <div class="cmp-cell cmp-ghost">Yes, open source</div>
+        <div class="cmp-cell">No</div>
+        <div class="cmp-cell cmp-dim">Self-host / data ownership</div>
+        <div class="cmp-cell cmp-ghost">Yes, your own Postgres</div>
+        <div class="cmp-cell">No, SaaS only</div>
+        <div class="cmp-cell cmp-dim">Pricing model</div>
+        <div class="cmp-cell cmp-ghost">Free self-hosted, usage-based hosted</div>
+        <div class="cmp-cell">Event-volume based</div>
+        <div class="cmp-cell cmp-dim">Error grouping</div>
+        <div class="cmp-cell cmp-ghost">Automatic fingerprinting</div>
+        <div class="cmp-cell">Yes</div>
+        <div class="cmp-cell cmp-dim">Source maps and stack traces</div>
+        <div class="cmp-cell cmp-ghost">Full source-mapped traces</div>
+        <div class="cmp-cell">Yes</div>
+        <div class="cmp-cell cmp-dim">Releases and environments</div>
+        <div class="cmp-cell cmp-ghost">Built in</div>
+        <div class="cmp-cell">Yes, deploy tracking</div>
+        <div class="cmp-cell cmp-dim">Alerting</div>
+        <div class="cmp-cell cmp-ghost">New and spiking issues</div>
+        <div class="cmp-cell">Yes</div>
+        <div class="cmp-cell cmp-dim">Data retention</div>
+        <div class="cmp-cell cmp-ghost">Yours to set when self-hosted</div>
+        <div class="cmp-cell">Plan-based</div>
+        </div>
+        <p class="cmp-note">Where Airbrake still leads: it is a long-established tool with deep, mature SDKs for Ruby and other classic server stacks.</p>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="why-heading">
+        <div class="section-head">
+          <h2 id="why-heading" class="section-title">Why teams pick bughq</h2>
+        </div>
+        <div class="flow">
+          <div class="flow-step">
+            <span class="flow-num">01</span>
+            <div>
+              <h3>Own your data</h3>
+              <p>Airbrake is SaaS only. bughq self-hosts on your own Postgres, keeping error payloads on your infrastructure.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">02</span>
+            <div>
+              <h3>Open source</h3>
+              <p>bughq is open and self-hostable, so ingestion and grouping are transparent rather than a hosted black box.</p>
+            </div>
+          </div>
+          <div class="flow-step">
+            <span class="flow-num">03</span>
+            <div>
+              <h3>Predictable cost</h3>
+              <p>Event-volume billing rises with incidents and traffic. Self-hosted bughq breaks that link and costs nothing to run yourself.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Fair comparison">
+        <div class="chips">
+          <div class="chip">
+            <h3>Credit where it is due</h3>
+            <p>Airbrake has a long track record and battle-tested SDKs, especially in the Ruby world. bughq is the newer, open, self-hostable option covering the same essentials.</p>
+          </div>
+          <div class="chip">
+            <h3>What bughq is</h3>
+            <p>Open-source error and crash tracking you can run on your own Postgres, or use on a hosted tier. Automatic capture, fingerprint grouping, source-mapped traces, releases, and alerts, without the rest of an observability suite.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="related-heading">
+        <div class="section-head">
+          <h2 id="related-heading" class="section-title">More comparisons</h2>
+        </div>
+        <div class="related">
+          <a href="/compare/rollbar">
+            <div class="r-name">bughq vs Rollbar</div>
+            <div class="r-desc">A closed-source SaaS error tracker.</div>
+          </a>
+          <a href="/compare/honeybadger">
+            <div class="r-name">bughq vs Honeybadger</div>
+            <div class="r-desc">Errors plus uptime and cron monitoring.</div>
+          </a>
+          <a href="/compare/sentry">
+            <div class="r-name">bughq vs Sentry</div>
+            <div class="r-desc">The incumbent error platform, compared.</div>
+          </a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Get started">
+        <div class="cta-band">
+          <h2>Own your error tracking.</h2>
+          <div class="cta-actions">
+            <a class="btn primary" href="/register">Get started</a>
+            <a class="btn ghost" href="/features/self-host">Read about self-hosting</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    @include('SiteFooter')
+  </body>
+</html>

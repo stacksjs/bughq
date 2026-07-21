@@ -1,0 +1,87 @@
+<script server>
+// Every competitor comparison page, listed once here and in the footer.
+const alternatives = [
+  { slug: 'sentry', name: 'Sentry', desc: 'The incumbent error platform. Broad, capable, and heavy to self-host.' },
+  { slug: 'bugsnag', name: 'Bugsnag', desc: 'Closed-source stability monitoring with release-health scores.' },
+  { slug: 'rollbar', name: 'Rollbar', desc: 'Mature closed-source SaaS with rule-based error grouping.' },
+  { slug: 'raygun', name: 'Raygun', desc: 'Crash reporting bundled with APM and real-user monitoring.' },
+  { slug: 'honeybadger', name: 'Honeybadger', desc: 'Errors plus uptime and cron monitoring under flat pricing.' },
+  { slug: 'airbrake', name: 'Airbrake', desc: 'One of the original error trackers, now a closed SaaS.' },
+  { slug: 'glitchtip', name: 'GlitchTip', desc: 'Open source and Sentry-compatible. The closest peer to bughq.' },
+  { slug: 'datadog', name: 'Datadog', desc: 'A full observability suite with error tracking as one module.' },
+]
+</script>
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>bughq alternatives compared - bughq</title>
+    <meta name="description" content="How bughq, an open-source error tracker you self-host on Postgres, compares to Sentry, Bugsnag, Rollbar, Raygun, Honeybadger, Airbrake, GlitchTip, and Datadog.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+    <link rel="stylesheet" href="/marketing.css">
+  </head>
+  <body>
+    @include('SiteNav')
+
+    <main>
+      <nav class="subnav shell" aria-label="Breadcrumb">
+        <a href="/">Home</a><span class="sep">/</span>
+        <span>Compare</span>
+      </nav>
+
+      <section class="feat-hero shell">
+        <span class="kicker">Compare</span>
+        <h1>All the alternatives, compared honestly.</h1>
+        <p>Every error tracker here is good at what it does, and most of them are closed source or hosted only. bughq is the open one you run on your own Postgres. These pages lay out the trade-offs side by side, including where each tool still beats us.</p>
+        <div class="hero-actions">
+          <a class="btn primary" href="/register">Get started</a>
+          <a class="btn ghost" href="/features/self-host">Read about self-hosting</a>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-labelledby="alts-heading">
+        <div class="section-head">
+          <h2 id="alts-heading" class="section-title">Pick a tool to compare</h2>
+          <p class="section-intro">Each page carries a full capability table, an honest note on what the other tool does better, and where bughq fits instead.</p>
+        </div>
+        <div class="related">
+          @foreach (alternatives as alt)
+            <a href="/compare/{{ alt.slug }}">
+              <div class="r-name">bughq vs {{ alt.name }}</div>
+              <div class="r-desc">{{ alt.desc }}</div>
+            </a>
+          @endforeach
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="How to read these">
+        <div class="chips">
+          <div class="chip">
+            <h3>Open and self-hosted</h3>
+            <p>The line that runs through every comparison: bughq is open source and self-hosts as a single app on your own Postgres, so error payloads and stack traces stay on your infrastructure. Most of the tools here are closed source, hosted only, or both.</p>
+          </div>
+          <div class="chip">
+            <h3>Focused, not a suite</h3>
+            <p>bughq is error and crash tracking, not an observability platform. If you want tracing, replay, RUM, logs, and infra metrics in one vendor, some of these tools do more. If you want the error slice done well and owned by you, that is the whole point of bughq.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section shell reveal" aria-label="Get started">
+        <div class="cta-band">
+          <h2>Own your error tracking.</h2>
+          <div class="cta-actions">
+            <a class="btn primary" href="/register">Get started</a>
+            <a class="btn ghost" href="/docs">Read the docs</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    @include('SiteFooter')
+  </body>
+</html>
