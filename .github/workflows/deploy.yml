@@ -107,3 +107,42 @@ jobs:
           # (also carried encrypted in .env.production; set here explicitly).
           TS_CLOUD_UI_DOMAIN: cloud.bughq.org
           COPYFILE_DISABLE: '1'
+
+      # ts-cloud ships a DECRYPTED shared/.env for the running service, but the
+      # buddy CLI (and preStart hooks) load .env.<env> (still encrypted) directly
+      # and need the KEY file — which rsync drops because .env.keys is gitignored.
+      # So: install .env.keys into shared/ (persists across releases) + symlink it
+      # into the current release, then run migrate now that it can actually
+      # decrypt. This creates the framework auth schema (oauth_access_tokens,
+      # users.two_factor_*) the login flow needs. Output shows here in the Actions
+      # log (unlike preStart, which runs on the box).
+      - name: Provision .env.keys on the box + migrate
+        env:
+          APP_ENV: ${{ needs.determine-environment.outputs.environment }}
+          DOTENV_PRIVATE_KEY_PRODUCTION: ${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}
+          DOTENV_PRIVATE_KEY_STAGING: ${{ secrets.DOTENV_PRIVATE_KEY_STAGING }}
+          DOTENV_PRIVATE_KEY_DEVELOPMENT: ${{ secrets.DOTENV_PRIVATE_KEY_DEVELOPMENT }}
+        run: |
+          set -euo pipefail
+          APP_DIR=/var/www/bughq-main
+          # Resolve this environment's box IP from the decrypted .env.<env>
+          # (.env.keys was written on the runner in the earlier step).
+          IP="$(bun -e '
+            const { autoLoadEnv } = await import("@stacksjs/env");
+            autoLoadEnv({ env: process.env.APP_ENV, keysFile: ".env.keys", overload: true, quiet: true });
+            const ip = process.env.APP_ENV === "staging" ? process.env.STAGING_SERVER_IP : process.env.APP_SERVER_IP;
+            process.stdout.write(String(ip || "").trim());
+          ')"
+          test -n "$IP" || { echo "::error::could not resolve server IP for $APP_ENV"; exit 1; }
+          echo "box: $IP  (env: $APP_ENV)"
+          SSH="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@${IP}"
+          # Write .env.keys into shared/ (600) from the secrets on this runner,
+          # then symlink it into the live release. Content is piped (never echoed).
+          printf '# Provisioned by CI from secrets — do not edit.\nDOTENV_PRIVATE_KEY_PRODUCTION="%s"\nDOTENV_PRIVATE_KEY_STAGING="%s"\nDOTENV_PRIVATE_KEY_DEVELOPMENT="%s"\n' \
+            "$DOTENV_PRIVATE_KEY_PRODUCTION" "$DOTENV_PRIVATE_KEY_STAGING" "$DOTENV_PRIVATE_KEY_DEVELOPMENT" \
+            | $SSH "umask 077; mkdir -p ${APP_DIR}/shared; cat > ${APP_DIR}/shared/.env.keys; chmod 600 ${APP_DIR}/shared/.env.keys; ln -sfn ${APP_DIR}/shared/.env.keys ${APP_DIR}/current/.env.keys"
+          echo "== .env.keys installed =="; $SSH "ls -l ${APP_DIR}/current/.env.keys"
+          echo "== migrate (additive; auto-declines the destructive drops) =="
+          # Y = run migrations, n = do NOT apply destructive drops (two_factor_* etc.)
+          $SSH "cd ${APP_DIR}/current && printf 'Y\nn\n' | bun node_modules/@stacksjs/buddy/dist/cli.js migrate" \
+            || echo "::warning::migrate returned non-zero — inspect the output above"

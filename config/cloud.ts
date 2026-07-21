@@ -702,11 +702,10 @@ export const tsCloud: TsCloudConfig = {
       // 3022 is bughq's slot on the shared box (localhost-only; rpx fronts it).
       start: 'bun node_modules/@stacksjs/buddy/dist/cli.js serve',
       port: 3022,
-      // Migrate on every deploy (idempotent). `buddy migrate` runs the numbered
-      // migrations AND migrateAuthTables() — the framework auth schema
-      // (oauth_access_tokens, oauth_refresh_tokens, users.two_factor_* columns)
-      // that the login flow reads. Without this a fresh box 500s on sign-in.
-      preStart: ['bun install', 'bun node_modules/@stacksjs/buddy/dist/cli.js migrate'],
+      // Migrations run in the deploy workflow's "Provision .env.keys + migrate"
+      // step (after .env.keys is on the box, so it can decrypt) — not here in
+      // preStart, which runs before decryption is possible.
+      preStart: ['bun install'],
       env: {
         APP_URL: 'https://bughq.org',
         API_URL: 'http://127.0.0.1:3023',
