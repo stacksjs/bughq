@@ -67,6 +67,24 @@ jobs:
             chmod 644 ~/.ssh/id_ed25519.pub
           fi
 
+      # Reconstruct .env.keys on the runner from the private-key secrets so the
+      # DEPLOYED BOX can decrypt its committed, encrypted .env.<env> at runtime.
+      # .env.keys is gitignored (never committed); created here so `buddy deploy`
+      # ships it with the app. Without it the box reads `encrypted:…` verbatim
+      # and config (app.env / database.default) is invalid → DB unreadable.
+      - name: Create .env.keys for the box
+        run: |
+          umask 077
+          {
+            echo '# Generated in CI from secrets — do not commit.'
+            echo "DOTENV_PRIVATE_KEY_PRODUCTION=\"${{ secrets.DOTENV_PRIVATE_KEY_PRODUCTION }}\""
+            echo "DOTENV_PRIVATE_KEY_STAGING=\"${{ secrets.DOTENV_PRIVATE_KEY_STAGING }}\""
+            echo "DOTENV_PRIVATE_KEY_DEVELOPMENT=\"${{ secrets.DOTENV_PRIVATE_KEY_DEVELOPMENT }}\""
+          } > .env.keys
+          chmod 600 .env.keys
+          # Sanity (no secret printed): confirm the file has the 3 keys.
+          echo "created .env.keys with $(grep -c '^DOTENV_PRIVATE_KEY' .env.keys) private keys"
+
       - name: Deploy (${{ needs.determine-environment.outputs.environment }})
         # Invoke the buddy CLI from node_modules directly rather than via the
         # ./buddy wrapper. The wrapper is built for the vendored/pantry layout
