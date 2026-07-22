@@ -143,6 +143,10 @@ jobs:
             | $SSH "umask 077; mkdir -p ${APP_DIR}/shared; cat > ${APP_DIR}/shared/.env.keys; chmod 600 ${APP_DIR}/shared/.env.keys; ln -sfn ${APP_DIR}/shared/.env.keys ${APP_DIR}/current/.env.keys"
           echo "== .env.keys installed =="; $SSH "ls -l ${APP_DIR}/current/.env.keys"
           echo "== migrate (additive; auto-declines the destructive drops) =="
+          # `buddy migrate` is a fastCommand that SKIPS the preloader's keyed
+          # autoLoadEnv, so it never decrypts .env.<env> on its own. Source the
+          # already-decrypted shared/.env (+ .env.keys) first so the plaintext
+          # config is in the shell env before buddy loads.
           # Y = run migrations, n = do NOT apply destructive drops (two_factor_* etc.)
-          $SSH "cd ${APP_DIR}/current && printf 'Y\nn\n' | bun node_modules/@stacksjs/buddy/dist/cli.js migrate" \
+          $SSH "cd ${APP_DIR}/current && set -a && . ${APP_DIR}/shared/.env && . ${APP_DIR}/shared/.env.keys && set +a && printf 'Y\nn\n' | bun node_modules/@stacksjs/buddy/dist/cli.js migrate" \
             || echo "::warning::migrate returned non-zero — inspect the output above"
