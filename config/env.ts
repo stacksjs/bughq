@@ -103,6 +103,86 @@ export default {
     default: '/api',
   },
 
+  AI_DRIVER: {
+    validation: schema.enum(['anthropic', 'openai', 'ollama']),
+    default: 'openai',
+  },
+
+  AI_AUTOFIX_ENABLED: {
+    validation: schema.boolean(),
+    default: true,
+  },
+
+  AI_AUTOFIX_DRAFT: {
+    validation: schema.boolean(),
+    default: true,
+  },
+
+  AI_AUTOFIX_MAX_FILES: {
+    validation: schema.number(),
+    default: 5,
+  },
+
+  AI_AUTOFIX_MAX_SOURCE_BYTES: {
+    validation: schema.number(),
+    default: 524288,
+  },
+
+  AI_AUTOFIX_BRANCH_PREFIX: {
+    validation: schema.string(),
+    default: 'bughq/autofix',
+  },
+
+  GITHUB_TOKEN: {
+    validation: schema.string(),
+    default: '',
+  },
+
+  OPENAI_API_KEY: {
+    validation: schema.string(),
+    default: '',
+  },
+
+  OPENAI_MODEL: {
+    validation: schema.string(),
+    default: 'gpt-4o',
+  },
+
+  OPENAI_MAX_TOKENS: {
+    validation: schema.number(),
+    default: 8192,
+  },
+
+  OPENAI_BASE_URL: {
+    validation: schema.string(),
+    default: 'https://api.openai.com/v1',
+  },
+
+  ANTHROPIC_API_KEY: {
+    validation: schema.string(),
+    default: '',
+  },
+
+  ANTHROPIC_MODEL: {
+    validation: schema.string(),
+    default: 'claude-sonnet-4-20250514',
+  },
+
+  ANTHROPIC_MAX_TOKENS: {
+    validation: schema.number(),
+    default: 8192,
+  },
+
+  OLLAMA_HOST: {
+    validation: schema.string(),
+    default: 'http://localhost:11434',
+  },
+
+  OLLAMA_MODEL: {
+    validation: schema.string(),
+    default: 'llama3.2',
+  },
+
   DOCS_PREFIX: {
     validation: schema.string(),
     default: '/docs',

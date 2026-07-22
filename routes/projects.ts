@@ -203,6 +203,7 @@ route.delete('/api/projects/{projectId}', async (request: any) => {
     return json({ error: 'not found' }, 404)
 
   await db.unsafe('DELETE FROM error_events WHERE project_id = $1', [projectId])
+  await db.unsafe('DELETE FROM autofix_runs WHERE project_id = $1', [projectId])
   await db.unsafe('DELETE FROM issues WHERE project_id = $1', [projectId])
   await db.unsafe('DELETE FROM alert_channels WHERE project_id = $1', [projectId])
   await db.unsafe('DELETE FROM project_members WHERE project_id = $1', [projectId])

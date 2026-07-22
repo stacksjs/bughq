@@ -16,5 +16,6 @@ export default {
   api: 'api',
   v1: { path: 'v1', prefix: 'v1' },
   errors: { path: 'errors', prefix: '' },
+  autofix: { path: 'autofix', prefix: '' },
   auth: { path: 'auth', prefix: '' },
 } satisfies RouteRegistry
