@@ -1,0 +1,397 @@
+<script>
+interface AutofixPanelProps {
+  issueId: string
+  projectId: string
+}
+
+const { issueId, projectId } = defineProps<AutofixPanelProps>()
+</script>
+
+<script client>
+const autofixIssueId = '{{ issueId }}'
+const autofixProjectId = '{{ projectId }}'
+const autofixState = state(null)
+const autofixLoading = state(true)
+const autofixStarting = state(false)
+const repositorySaving = state(false)
+const autofixError = state('')
+const repositoryInput = state('')
+const branchInput = state('')
+
+function authHeaders() {
+  return {
+    'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+    'Content-Type': 'application/json',
+  }
+}
+
+function activeRun(run) {
+  return !!run && ['queued', 'analyzing', 'planning', 'editing', 'creating_pr'].includes(run.status)
+}
+
+function currentAutofix() {
+  return autofixState() || {}
+}
+
+function currentRun() {
+  return currentAutofix().run || null
+}
+
+function hasAutofixRun() {
+  return !!currentRun()
+}
+
+function currentRepository() {
+  return currentAutofix().repository || ''
+}
+
+function autofixEnabled() {
+  return currentAutofix().enabled !== false
+}
+
+function canRunAutofix() {
+  return !!currentAutofix().can_run
+}
+
+function currentRunStatus() {
+  return currentRun()?.status || ''
+}
+
+function currentRootCause() {
+  return currentRun()?.root_cause || ''
+}
+
+function currentPlanSteps() {
+  return currentRun()?.plan?.steps || []
+}
+
+function currentChangeFiles() {
+  return currentRun()?.changes?.files || []
+}
+
+function currentRunError() {
+  return currentRun()?.error || ''
+}
+
+function currentPullRequestUrl() {
+  return currentRun()?.pr_url || ''
+}
+
+function currentBranchName() {
+  return currentRun()?.branch_name || ''
+}
+
+function autofixProgressStyle() {
+  const progress = { analyzing: '.18', planning: '.42', editing: '.7' }
+  return `transform:scaleX(${progress[currentRunStatus()] || '.9'})`
+}
+
+function loadingClass() {
+  return autofixLoading() ? 'grid gap-3 autofix-run' : 'autofix-hidden'
+}
+
+function disabledClass() {
+  return !autofixLoading() && !autofixEnabled() ? 'text-sm autofix-setup' : 'autofix-hidden'
+}
+
+function repositorySetupClass() {
+  return !autofixLoading() && autofixEnabled() && !currentRepository() ? 'autofix-setup' : 'autofix-hidden'
+}
+
+function ownerSetupClass() {
+  return canRunAutofix() ? 'autofix-hidden' : 'text-sm'
+}
+
+function repositoryFieldsClass() {
+  return canRunAutofix() ? '' : 'autofix-hidden'
+}
+
+function readyClass() {
+  return !autofixLoading() && autofixEnabled() && !!currentRepository() && !hasAutofixRun()
+    ? 'flex flex-col gap-4 md:flex-row md:items-center md:justify-between autofix-run'
+    : 'autofix-hidden'
+}
+
+function workflowClass() {
+  return !autofixLoading() && autofixEnabled() && !!currentRepository() && hasAutofixRun() ? '' : 'autofix-hidden'
+}
+
+function progressClass() {
+  return activeRun(currentRun()) ? 'autofix-progress' : 'autofix-hidden'
+}
+
+function runButtonClass() {
+  return canRunAutofix() ? 'btn btn-autofix' : 'autofix-hidden'
+}
+
+function currentPlanText() {
+  const steps = currentPlanSteps()
+  if (!steps.length)
+    return 'The plan will appear after the root cause is confirmed.'
+  return steps.map((step, index) => `${index + 1}. ${step.title}\n${step.detail}`).join('\n\n')
+}
+
+function currentChangesText() {
+  const files = currentChangeFiles()
+  if (!files.length)
+    return 'File changes will appear here before the pull request is created.'
+  return files.map(file => `${file.path}\n${file.explanation}`).join('\n\n')
+}
+
+function pullRequestLinkClass() {
+  return currentPullRequestUrl() ? 'btn' : 'autofix-hidden'
+}
+
+function pullRequestWaitingClass() {
+  return currentPullRequestUrl() ? 'autofix-hidden' : ''
+}
+
+function retryClass() {
+  return currentRunStatus() === 'failed' && canRunAutofix()
+    ? 'flex gap-4 items-center justify-between autofix-run'
+    : 'autofix-hidden'
+}
+
+function errorClass() {
+  return autofixError() || currentRunError() ? 'autofix-error' : 'autofix-hidden'
+}
+
+function stepClass(stage) {
+  const classes = ['autofix-step']
+  if (stageReached(stage)) classes.push('done')
+  if (stageActive(stage)) classes.push('active')
+  return classes.join(' ')
+}
+
+function stageReached(stage) {
+  const order = { queued: 0, analyzing: 0, planning: 1, editing: 2, creating_pr: 3, completed: 4, failed: -1 }
+  const status = autofixState()?.run?.status || 'queued'
+  return (order[status] ?? -1) >= stage
+}
+
+function stageActive(stage) {
+  const status = autofixState()?.run?.status || ''
+  const stages = [['queued', 'analyzing'], ['planning'], ['editing'], ['creating_pr'], ['completed']]
+  return stages[stage]?.includes(status) || false
+}
+
+async function loadAutofix(schedule = true) {
+  try {
+    const response = await fetch(`/api/issues/${encodeURIComponent(autofixIssueId)}/autofix`, { headers: authHeaders() })
+    if (response.status === 401)
+      throw new Error('Sign in to use Autofix.')
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(data.error || 'Could not load Autofix.')
+    autofixState.set(data)
+    if (!repositoryInput() && data.repository) repositoryInput.set(data.repository)
+    if (!branchInput() && data.repository_branch) branchInput.set(data.repository_branch)
+    autofixError.set('')
+    if (schedule && activeRun(data.run)) setTimeout(() => loadAutofix(true), 2200)
+  }
+  catch (error) {
+    autofixError.set(error instanceof Error ? error.message : 'Could not load Autofix.')
+  }
+  finally {
+    autofixLoading.set(false)
+  }
+}
+
+async function startAutofix() {
+  if (autofixStarting()) return
+  autofixStarting.set(true)
+  autofixError.set('')
+  autofixState.set({ ...autofixState(), run: { status: 'queued' } })
+  try {
+    const response = await fetch(`/api/issues/${encodeURIComponent(autofixIssueId)}/autofix`, {
+      method: 'POST', headers: authHeaders(), body: '{}',
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(data.error || 'Could not start Autofix.')
+    await loadAutofix(true)
+  }
+  catch (error) {
+    autofixError.set(error instanceof Error ? error.message : 'Could not start Autofix.')
+    await loadAutofix(false)
+  }
+  finally {
+    autofixStarting.set(false)
+  }
+}
+
+function updateRepository(event) { repositoryInput.set(event.target.value) }
+function updateBranch(event) { branchInput.set(event.target.value) }
+
+async function saveRepository(disconnect = false) {
+  if (repositorySaving()) return
+  repositorySaving.set(true)
+  autofixError.set('')
+  try {
+    const response = await fetch(`/api/projects/${encodeURIComponent(autofixProjectId)}/repository`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: JSON.stringify({ repository: disconnect ? '' : repositoryInput(), branch: branchInput() }),
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(data.error || 'Could not connect the repository.')
+    repositoryInput.set(data.repository || '')
+    branchInput.set(data.repository_branch || '')
+    await loadAutofix(false)
+  }
+  catch (error) {
+    autofixError.set(error instanceof Error ? error.message : 'Could not connect the repository.')
+  }
+  finally {
+    repositorySaving.set(false)
+  }
+}
+
+loadAutofix(true)
+</script>
+<style>
+.autofix-hidden { display:none !important; }
+/* AI Autofix */
+.autofix-card { width:100%; min-width:0; overflow:hidden; background:var(--panel); border:1px solid var(--border); border-radius:14px; }
+.autofix-card .btn { display:inline-flex; align-items:center; justify-content:center; gap:.4rem; padding:.4rem .8rem; border:1px solid var(--border); border-radius:9px; background:var(--panel); color:var(--text-2); font-size:.8rem; font-weight:600; cursor:pointer; transition:color .12s ease,border-color .12s ease,background-color .12s ease,transform .12s ease; }
+.autofix-card .btn:hover { color:var(--text); border-color:color-mix(in srgb,var(--accent) 40%,var(--border)); background:color-mix(in srgb,var(--accent) 6%,transparent); }
+.autofix-card .btn:active { transform:translateY(1px); }
+.autofix-top { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1rem 1.1rem; border-bottom:1px solid var(--border-2); }
+.autofix-title { display:flex; align-items:center; gap:.65rem; font-weight:700; letter-spacing:-.015em; }
+.autofix-title i { color:var(--accent); }
+.autofix-status { font-family:var(--mono); font-size:.7rem; color:var(--text-3); }
+.autofix-setup { padding:1rem 1.1rem 1.15rem; background:var(--panel-2); }
+.autofix-fields { display:grid; grid-template-columns:minmax(0,1fr) minmax(9rem,.35fr) auto; gap:.65rem; align-items:end; }
+.autofix-field label { display:block; margin-bottom:.35rem; color:var(--text-3); font-size:.7rem; font-weight:600; }
+.autofix-input { width:100%; border:1px solid var(--border); border-radius:9px; background:var(--panel); color:var(--text); padding:.55rem .7rem; font-family:var(--mono); font-size:.76rem; outline:none; }
+.autofix-input:focus { border-color:color-mix(in srgb,var(--accent) 65%,var(--border)); box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 12%,transparent); }
+.btn-autofix { color:#fff; background:color-mix(in srgb,var(--accent) 78%,#0b0f19); border-color:transparent; white-space:nowrap; }
+.btn-autofix:hover { color:#fff; background:color-mix(in srgb,var(--accent) 88%,#0b0f19); border-color:transparent; }
+.btn:focus-visible, .icon-btn:focus-visible, .autofix-input:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.autofix-run { padding:1.1rem; }
+.autofix-progress { height:3px; overflow:hidden; background:var(--border); }
+.autofix-progress span { display:block; height:100%; background:var(--accent); transition:transform .35s ease; transform-origin:left; }
+.autofix-step { border-top:1px solid var(--border-2); }
+.autofix-step summary { display:flex; align-items:center; gap:.75rem; padding:.9rem 1rem; cursor:pointer; list-style:none; }
+.autofix-step summary::-webkit-details-marker { display:none; }
+.autofix-step summary:hover { background:var(--panel-2); }
+.autofix-step .step-icon { width:28px; height:28px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:var(--panel-2); color:var(--text-3); }
+.autofix-step.done .step-icon, .autofix-step.active .step-icon { color:var(--accent); background:color-mix(in srgb,var(--accent) 10%,transparent); }
+.autofix-step .step-copy { flex:1; min-width:0; }
+.autofix-step .step-name { font-size:.83rem; font-weight:650; }
+.autofix-step .step-state { margin-top:.1rem; color:var(--text-3); font-size:.7rem; }
+.autofix-step .step-chevron { color:var(--text-3); transition:transform .16s ease; }
+.autofix-step[open] .step-chevron { transform:rotate(90deg); }
+.autofix-detail { padding:.1rem 1rem 1rem 3.75rem; color:var(--text-2); font-size:.8rem; line-height:1.55; }
+.autofix-plan { display:grid; gap:.55rem; }
+.autofix-plan li { display:grid; grid-template-columns:1.15rem 1fr; gap:.55rem; }
+.autofix-file { padding:.6rem .7rem; border-radius:9px; background:var(--panel-2); }
+.autofix-file + .autofix-file { margin-top:.45rem; }
+.autofix-error { margin:0 1rem 1rem; padding:.7rem .8rem; border-radius:9px; color:#ef4444; background:rgba(239,68,68,.08); font-size:.78rem; }
+.autofix-value { color:var(--text-2); line-height:1.55; white-space:pre-wrap; }
+.autofix-value::after { content:attr(data-value); }
+.autofix-skeleton { height:.75rem; border-radius:5px; background:linear-gradient(90deg,var(--border),var(--panel-2),var(--border)); background-size:200% 100%; animation:autofix-shimmer 1.4s ease infinite; }
+@keyframes autofix-shimmer { to { background-position:-200% 0; } }
+@media (prefers-reduced-motion: reduce) { .autofix-progress span { transition:none; } .autofix-skeleton { animation:none; } }
+@media (max-width:767px) { .autofix-fields { grid-template-columns:1fr; } .autofix-detail { padding-left:1rem; } .autofix-top { align-items:flex-start; } }
+</style>
+<section class="mb-5 autofix-card" aria-labelledby="autofix-heading">
+  <div class="autofix-top">
+    <div>
+      <div class="autofix-title" id="autofix-heading"><i class="h-5 w-5 i-hugeicons-ai-magic"></i> AI Autofix</div>
+      <div class="mt-1 autofix-status">Analyze the issue and prepare a reviewable fix</div>
+    </div>
+    <div class="flex gap-2 items-center">
+      <button type="button" class="btn" @click="loadAutofix(false)" :disabled="autofixLoading()" aria-label="Refresh Autofix">
+        <i class="h-4 w-4 i-hugeicons-refresh"></i>
+      </button>
+    </div>
+  </div>
+
+  <div :class="loadingClass()" aria-busy="true">
+    <div class="autofix-skeleton" style="width:42%"></div>
+    <div class="autofix-skeleton" style="width:76%"></div>
+    <div class="autofix-skeleton" style="width:61%"></div>
+  </div>
+
+  <div :class="disabledClass()" style="color:var(--text-2)">AI Autofix is disabled in the server configuration.</div>
+
+  <div :class="repositorySetupClass()">
+    <p :class="repositoryFieldsClass()" style="color:var(--text-2); font-size:.875rem; margin:0 0 .75rem">Connect the repository that produced this issue. BugHQ reads only the files selected for analysis and opens a draft pull request.</p>
+    <div :class="repositoryFieldsClass()">
+      <div class="autofix-fields">
+        <div class="autofix-field">
+          <label for="autofix-repository">GitHub repository</label>
+          <input id="autofix-repository" class="autofix-input" type="text" placeholder="owner/repository" :value="repositoryInput()" @input="updateRepository" autocomplete="off">
+        </div>
+        <div class="autofix-field">
+          <label for="autofix-branch">Base branch</label>
+          <input id="autofix-branch" class="autofix-input" type="text" placeholder="auto-detect" :value="branchInput()" @input="updateBranch" autocomplete="off">
+        </div>
+        <button type="button" class="btn" @click="saveRepository(false)" :disabled="repositorySaving() || !repositoryInput()">
+          Connect
+        </button>
+      </div>
+    </div>
+    <p :class="ownerSetupClass()" style="color:var(--text-2)">The project owner needs to connect a GitHub repository before Autofix can run.</p>
+  </div>
+
+  <div :class="readyClass()">
+    <div>
+      <div class="font-semibold text-sm">Prepare a repository fix</div>
+      <p class="mt-1 max-w-2xl text-xs" style="color:var(--text-3)">BugHQ will inspect the stack trace, read a bounded set of source files, and open a draft pull request for review.</p>
+    </div>
+    <button type="button" :class="runButtonClass()" @click="startAutofix" :disabled="autofixStarting()">
+      <i class="h-4 w-4 i-hugeicons-ai-magic"></i> Run Autofix
+    </button>
+  </div>
+
+  <div :class="workflowClass()">
+    <div :class="progressClass()" aria-hidden="true"><span :style="autofixProgressStyle()"></span></div>
+
+    <details :class="stepClass(0)" :open="stageActive(0) || !!currentRootCause()">
+      <summary>
+        <span class="step-icon"><i class="h-4 w-4 i-hugeicons-bug-02"></i></span>
+        <span class="step-copy"><span class="step-name">Root cause</span><span class="block step-state">Issue evidence and source analysis</span></span>
+        <i class="h-4 w-4 i-hugeicons-arrow-right-01 step-chevron"></i>
+      </summary>
+      <div class="autofix-detail autofix-value" :data-value="currentRootCause()"></div>
+    </details>
+
+    <details :class="stepClass(1)" :open="stageActive(1)">
+      <summary>
+        <span class="step-icon"><i class="h-4 w-4 i-hugeicons-task-01"></i></span>
+        <span class="step-copy"><span class="step-name">Plan</span><span class="block step-state">Narrow, reviewable fix plan</span></span>
+        <i class="h-4 w-4 i-hugeicons-arrow-right-01 step-chevron"></i>
+      </summary>
+      <div class="autofix-detail autofix-value" :data-value="currentPlanText()"></div>
+    </details>
+
+    <details :class="stepClass(2)" :open="stageActive(2)">
+      <summary>
+        <span class="step-icon"><i class="h-4 w-4 i-hugeicons-source-code"></i></span>
+        <span class="step-copy"><span class="step-name">Code changes</span><span class="block step-state">Bounded file replacements</span></span>
+        <i class="h-4 w-4 i-hugeicons-arrow-right-01 step-chevron"></i>
+      </summary>
+      <div class="autofix-detail autofix-value mono" :data-value="currentChangesText()"></div>
+    </details>
+
+    <details :class="stepClass(3)" :open="stageActive(3) || stageActive(4)">
+      <summary>
+        <span class="step-icon"><i class="h-4 w-4 i-hugeicons-git-pull-request"></i></span>
+        <span class="step-copy"><span class="step-name">Pull request</span><span class="block step-state">Atomic commit and draft pull request</span></span>
+        <i class="h-4 w-4 i-hugeicons-arrow-right-01 step-chevron"></i>
+      </summary>
+      <div class="autofix-detail">
+        <a :class="pullRequestLinkClass()" :href="currentPullRequestUrl()" target="_blank" rel="noopener noreferrer"><i class="h-4 w-4 i-hugeicons-git-pull-request"></i> Review pull request</a>
+        <div :class="pullRequestLinkClass()" aria-label="Autofix branch" style="display:block; padding:.5rem 0 0; color:var(--text-3); font-family:var(--mono); font-size:.75rem"><span class="autofix-value" :data-value="currentBranchName()"></span></div>
+        <span :class="pullRequestWaitingClass()">The draft pull request will stay unmerged until a human reviews it.</span>
+      </div>
+    </details>
+
+    <div :class="retryClass()">
+      <span class="text-xs" style="color:var(--text-3)">The previous run stopped safely. No partial pull request was opened.</span>
+      <button type="button" class="btn" @click="startAutofix" :disabled="autofixStarting()">Retry Autofix</button>
+    </div>
+  </div>
+
+  <div :class="errorClass()" role="alert"><span class="autofix-value" :data-value="autofixError() || currentRunError()"></span></div>
+</section>
