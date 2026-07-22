@@ -91,3 +91,7 @@ storage/framework/cache/
 
 # The Stacks framework is a dependency (stacksjs/stacks + buddy setup), not app source.
 /storage/framework/
+
+# Local backups of env files (may contain secrets) — never commit
+.env*.bak
+.env.corrupted*

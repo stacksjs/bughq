@@ -38,7 +38,13 @@ const fastCommands = [
 const isRepl = !process.argv[1]
 const skipPreloader = isRepl || (args.length > 0 && fastCommands.some(cmd => args[0] === cmd || args[0].startsWith(`${cmd}:`)))
 
-if (!skipPreloader) {
+// Env decryption is cheap and universally needed, so it must run for EVERY
+// command — including fast commands (migrate/build/seed/etc.). Gating it behind
+// skipPreloader meant those commands read `encrypted:…` verbatim with no key,
+// so config (database.default, app.env) stayed encrypted and secrets fell back
+// to defaults (stacksjs/stacks#2048). A bare block keeps the const scoping;
+// only the heavy auto-import graph stays gated (see skipAutoImports below).
+{
   // Detect production/deployment commands and set environment accordingly BEFORE loading env files
   // This ensures the correct .env.{env} file is loaded with proper encryption/decryption
   const productionCommands = ['cloud:remove', 'cloud:rm', 'cloud:destroy', 'cloud:cleanup', 'cloud:clean-up', 'undeploy']
