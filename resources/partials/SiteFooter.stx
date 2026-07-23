@@ -1,4 +1,4 @@
-<!-- Shared marketing footer, included on every marketing page via @include('SiteFooter').
+<!-- Shared marketing footer used on every marketing page.
      One source of truth for the site-wide footer, mirroring how SiteNav is shared.
      Adds an ohdear.com-style multi-column layout with a dedicated "Compare" column
      that links the alternatives index plus one page per competitor. Styles live in

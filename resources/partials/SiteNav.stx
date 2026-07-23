@@ -42,7 +42,7 @@
     </div>
 
     <a class="nav-login" data-auth-login href="/login">Log in</a>
-    <a class="btn primary sm nav-cta" data-auth-signup href="/register">Sign up</a>
+    <a class="btn nav-cta primary sm" data-auth-signup href="/register">Sign up</a>
 
     <details class="nav-menu">
       <summary aria-label="Open menu"><span class="burger" aria-hidden="true"></span></summary>
